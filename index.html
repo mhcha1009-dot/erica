@@ -1,257 +1,777 @@
-<!DOCTYPE html>
+import os
+import zipfile
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.datavalidation import DataValidation
+
+# Create temporary output directory
+os.makedirs("planner_files", exist_ok=True)
+
+# 1. HTML File
+html_content = """<!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI 스마트 플래너</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: #f4f8fb;
-      color: #333;
-      padding: 20px;
-    }
-    .container {
-      max-width: 1000px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-    
-    /* 상단 입력 섹션 */
-    .input-section {
-      background-color: #ffffff;
-      padding: 24px;
-      border-radius: 16px;
-      box-shadow: 0 4px 16px rgba(0, 102, 255, 0.08);
-      border: 1px solid #e1effe;
-    }
-    .input-section h1 {
-      font-size: 1.5rem;
-      color: #1a56db;
-      margin-bottom: 12px;
-    }
-    .input-group {
-      display: flex;
-      gap: 10px;
-    }
-    input[type="text"] {
-      flex: 1;
-      padding: 14px 18px;
-      border: 2px solid #e5edff;
-      border-radius: 10px;
-      font-size: 1rem;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    input[type="text"]:focus {
-      border-color: #1a56db;
-    }
-    button {
-      padding: 14px 28px;
-      background-color: #1a56db;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-size: 1rem;
-      font-weight: bold;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    button:hover {
-      background-color: #1e429f;
-    }
-
-    /* 하단 출력 섹션 (2분할) */
-    .output-section {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      min-height: 400px;
-    }
-    @media (max-width: 768px) {
-      .output-section { grid-template-columns: 1fr; }
-    }
-    .card {
-      background: #ffffff;
-      padding: 24px;
-      border-radius: 16px;
-      box-shadow: 0 4px 16px rgba(0, 102, 255, 0.05);
-      border: 1px solid #e1effe;
-      display: flex;
-      flex-direction: column;
-    }
-    .card h2 {
-      font-size: 1.2rem;
-      color: #1e429f;
-      margin-bottom: 16px;
-      padding-bottom: 8px;
-      border-bottom: 2px solid #ebf5ff;
-    }
-
-    /* 타임테이블 스타일 */
-    .timetable-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      overflow-y: auto;
-      max-height: 500px;
-    }
-    .timetable-item {
-      display: flex;
-      align-items: center;
-      background-color: #f0f7ff;
-      padding: 12px 16px;
-      border-radius: 8px;
-      border-left: 4px solid #1a56db;
-    }
-    .timetable-time {
-      font-weight: bold;
-      color: #1a56db;
-      width: 80px;
-    }
-    .timetable-task {
-      flex: 1;
-    }
-
-    /* 설명 텍스트 스타일 */
-    .description-text {
-      line-height: 1.6;
-      white-space: pre-wrap;
-      color: #4b5563;
-      overflow-y: auto;
-      max-height: 500px;
-    }
-
-    .loading {
-      text-align: center;
-      color: #1a56db;
-      font-weight: bold;
-      display: none;
-      padding: 20px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스마트 일정 관리 플래너 (수정 기능 포함)</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>📋 스마트 일정 플래너</h1>
+            <p>계획 생성부터 자유로운 수정 및 진행상태 관리까지 한 눈에!</p>
+        </header>
 
-  <div class="container">
-    <div class="input-section">
-      <h1>✨ AI 스마트 하루 플래너</h1>
-      <div class="input-group">
-        <input type="text" id="userInput" placeholder="예: 오늘 시험공부 일정을 만들어줘, 주말 휴식 계획 짜줘" />
-        <button onclick="generatePlan()">계획 짜기</button>
-      </div>
+        <main class="main-content">
+            <section class="card input-section">
+                <h2>➕ 새 일정 추가하기</h2>
+                <form id="plan-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="plan-title">일정 제목 *</label>
+                            <input type="text" id="plan-title" placeholder="예: 프로젝트 보고서 작성" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="plan-category">카테고리</label>
+                            <select id="plan-category">
+                                <option value="업무">💼 업무</option>
+                                <option value="공부">📚 공부</option>
+                                <option value="운동">🏃 운동</option>
+                                <option value="개인">👤 개인</option>
+                                <option value="기타">💡 기타</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="plan-date">날짜</label>
+                            <input type="date" id="plan-date">
+                        </div>
+                        <div class="form-group">
+                            <label for="plan-time">시간</label>
+                            <input type="time" id="plan-time">
+                        </div>
+                        <div class="form-group">
+                            <label for="plan-priority">우선순위</label>
+                            <select id="plan-priority">
+                                <option value="높음">🔴 높음</option>
+                                <option value="보통" selected>🟡 보통</option>
+                                <option value="낮음">🟢 낮음</option>
+                            </select>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="plan-desc">상세 설명</label>
+                            <textarea id="plan-desc" rows="2" placeholder="필요한 세부 메모를 입력하세요..."></textarea>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">계획 추가하기</button>
+                </form>
+            </section>
+
+            <section class="card filter-section">
+                <div class="filter-group">
+                    <button class="filter-btn active" data-filter="all">전체보기</button>
+                    <button class="filter-btn" data-filter="시작전">⏳ 시작전</button>
+                    <button class="filter-btn" data-filter="진행중">🔥 진행중</button>
+                    <button class="filter-btn" data-filter="완료">✅ 완료</button>
+                    <button class="filter-btn" data-filter="연기">➡️ 연기됨</button>
+                </div>
+                <div class="stats-badge">
+                    총 <span id="total-count">0</span>개 항목
+                </div>
+            </section>
+
+            <section class="plans-list-container">
+                <ul id="plans-list" class="plans-list">
+                    </ul>
+            </section>
+        </main>
     </div>
 
-    <div class="loading" id="loading">AI가 즐거운 하루 계획을 생성하고 있습니다... 🚀</div>
-
-    <div class="output-section">
-      <div class="card">
-        <h2>⏱️ 타임테이블</h2>
-        <ul class="timetable-list" id="timetable">
-          <li style="color: #9ca3af;">계획을 입력하면 여기에 시간이 표시됩니다.</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <h2>📝 상세 안내 & 팁</h2>
-        <div class="description-text" id="description">
-          계획을 입력하면 상세 설명이 여기에 출력됩니다.
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>✏️ 일정 수정하기</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <form id="edit-form">
+                <input type="hidden" id="edit-id">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="edit-title">일정 제목</label>
+                    <input type="text" id="edit-title" required>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="edit-category">카테고리</label>
+                        <select id="edit-category">
+                            <option value="업무">💼 업무</option>
+                            <option value="공부">📚 공부</option>
+                            <option value="운동">🏃 운동</option>
+                            <option value="개인">👤 개인</option>
+                            <option value="기타">💡 기타</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-status">진행 상태</label>
+                        <select id="edit-status">
+                            <option value="시작전">⏳ 시작전</option>
+                            <option value="진행중">🔥 진행중</option>
+                            <option value="완료">✅ 완료</option>
+                            <option value="연기">➡️ 연기됨</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-date">날짜</label>
+                        <input type="date" id="edit-date">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-time">시간</label>
+                        <input type="time" id="edit-time">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-priority">우선순위</label>
+                        <select id="edit-priority">
+                            <option value="높음">🔴 높음</option>
+                            <option value="보통">🟡 보통</option>
+                            <option value="낮음">🟢 낮음</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top: 12px;">
+                    <label for="edit-desc">상세 설명</label>
+                    <textarea id="edit-desc" rows="3"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary cancel-edit">취소</button>
+                    <button type="submit" class="btn btn-primary">수정 저장하기</button>
+                </div>
+            </form>
         </div>
-      </div>
     </div>
-  </div>
 
-  <script>
-    let activeAlarms = [];
-
-    // 알람 권한 요청
-    if ("Notification" in window) {
-      Notification.requestPermission();
-    }
-
-    async function generatePlan() {
-      const prompt = document.getElementById('userInput').value.trim();
-      if (!prompt) return alert("계획을 입력해 주세요!");
-
-      document.getElementById('loading').style.display = 'block';
-
-      try {
-        const response = await fetch('/api/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt })
-        });
-
-        const data = await response.json();
-        document.getElementById('loading').style.display = 'none';
-
-        if (data.error) {
-          alert('오류 발생: ' + data.error);
-          return;
-        }
-
-        renderPlan(data);
-        scheduleAlarms(data.schedule);
-
-      } catch (err) {
-        document.getElementById('loading').style.display = 'none';
-        alert('서버 요청 중 오류가 발생했습니다.');
-      }
-    }
-
-    function renderPlan(data) {
-      // 타임테이블 렌더링
-      const timetableEl = document.getElementById('timetable');
-      timetableEl.innerHTML = '';
-      
-      data.schedule.forEach(item => {
-        const li = document.createElement('li');
-        li.className = 'timetable-item';
-        li.innerHTML = `
-          <span class="timetable-time">${item.time}</span>
-          <span class="timetable-task">${item.task}</span>
-        `;
-        timetableEl.appendChild(li);
-      });
-
-      // 상세 설명 렌더링
-      document.getElementById('description').textContent = data.description;
-    }
-
-    // 시간 알람 등록 기능
-    function scheduleAlarms(schedule) {
-      // 기존 타이머 초기화
-      activeAlarms.forEach(id => clearTimeout(id));
-      activeAlarms = [];
-
-      const now = new Date();
-
-      schedule.forEach(item => {
-        const [hours, minutes] = item.time.split(':').map(Number);
-        const targetTime = new Date();
-        targetTime.setHours(hours, minutes, 0, 0);
-
-        // 미래의 시간일 경우에만 알람 등록
-        const diffMs = targetTime.getTime() - now.getTime();
-        if (diffMs > 0) {
-          const timerId = setTimeout(() => {
-            triggerAlarm(item.task);
-          }, diffMs);
-          activeAlarms.push(timerId);
-        }
-      });
-    }
-
-    function triggerAlarm(task) {
-      alert(`🔔 [알람] 할 시간입니다:\n${task}`);
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("⏱️ 일정 알람", { body: task });
-      }
-    }
-  </script>
+    <script src="app.js"></script>
 </body>
 </html>
+"""
+
+with open("planner_files/index.html", "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+# 2. CSS File
+css_content = """/* 기본 스타일 정의 */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+    background-color: #f4f6f8;
+    color: #333;
+    line-height: 1.6;
+    padding: 20px;
+}
+
+.app-container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.app-header {
+    text-align: center;
+    margin-bottom: 24px;
+    padding: 24px;
+    background: linear-gradient(135deg, #2b5876, #4e4376);
+    color: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.app-header h1 {
+    font-size: 1.8rem;
+    margin-bottom: 6px;
+}
+
+.app-header p {
+    font-size: 0.95rem;
+    opacity: 0.9;
+}
+
+.card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.card h2 {
+    font-size: 1.2rem;
+    margin-bottom: 16px;
+    color: #2c3e50;
+    border-left: 4px solid #4e4376;
+    padding-left: 10px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #555;
+}
+
+input[type="text"], input[type="date"], input[type="time"], select, textarea {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: #4e4376;
+}
+
+.btn {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background-color: #4e4376;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #3b335c;
+}
+
+.btn-secondary {
+    background-color: #e0e0e0;
+    color: #333;
+}
+
+.btn-secondary:hover {
+    background-color: #d0d0d0;
+}
+
+.filter-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 15px 20px;
+}
+
+.filter-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 6px 14px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-btn.active, .filter-btn:hover {
+    background: #2b5876;
+    color: white;
+    border-color: #2b5876;
+}
+
+.stats-badge {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #666;
+}
+
+.plans-list {
+    list-style: none;
+}
+
+.plan-item {
+    background: white;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 5px solid #ccc;
+    transition: transform 0.2s;
+}
+
+.plan-item:hover {
+    transform: translateY(-2px);
+}
+
+.plan-item.status-시작전 { border-left-color: #9e9e9e; }
+.plan-item.status-진행중 { border-left-color: #ff9800; }
+.plan-item.status-완료 { border-left-color: #4caf50; opacity: 0.85; }
+.plan-item.status-연기 { border-left-color: #f44336; }
+
+.plan-content {
+    flex: 1;
+    padding-right: 15px;
+}
+
+.plan-header-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+}
+
+.plan-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+.plan-item.status-완료 .plan-title {
+    text-decoration: line-through;
+    color: #888;
+}
+
+.badge {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.badge-cat { background: #e3f2fd; color: #1565c0; }
+.badge-status { background: #f5f5f5; color: #424242; }
+.badge-prio-높음 { background: #ffebee; color: #c62828; }
+.badge-prio-보통 { background: #fff8e1; color: #f57f17; }
+.badge-prio-낮음 { background: #e8f5e9; color: #2e7d32; }
+
+.plan-meta {
+    font-size: 0.85rem;
+    color: #777;
+    margin-bottom: 4px;
+}
+
+.plan-desc {
+    font-size: 0.9rem;
+    color: #555;
+    background: #fafafa;
+    padding: 8px;
+    border-radius: 6px;
+    margin-top: 6px;
+}
+
+.plan-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.action-btn {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.2s;
+}
+
+.edit-btn { background: #e3f2fd; color: #1976d2; }
+.edit-btn:hover { background: #bbdefb; }
+
+.delete-btn { background: #ffebee; color: #d32f2f; }
+.delete-btn:hover { background: #ffcdd2; }
+
+.toggle-btn { background: #e8f5e9; color: #388e3c; }
+.toggle-btn:hover { background: #c8e6c9; }
+
+/* Modal Styling */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    width: 90%;
+    max-width: 550px;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.close-modal {
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #888;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+"""
+
+with open("planner_files/styles.css", "w", encoding="utf-8") as f:
+    f.write(css_content)
+
+# 3. JS File
+js_content = """// 일정 데이터 및 수정 로직 관리
+document.addEventListener('DOMContentLoaded', () => {
+    let plans = JSON.parse(localStorage.getItem('smart_plans')) || [
+        {
+            id: 1,
+            title: '프로젝트 기획안 작성',
+            category: '업무',
+            date: '2026-07-28',
+            time: '10:00',
+            priority: '높음',
+            status: '진행중',
+            desc: '핵심 기능 정의 및 수정 기능 UI 설계 포함'
+        },
+        {
+            id: 2,
+            title: '주간 운동 (헬스장)',
+            category: '운동',
+            date: '2026-07-28',
+            time: '19:00',
+            priority: '보통',
+            status: '시작전',
+            desc: '하체 운동 및 유산소 30분'
+        }
+    ];
+
+    let currentFilter = 'all';
+
+    const planForm = document.getElementById('plan-form');
+    const plansList = document.getElementById('plans-list');
+    const totalCountEl = document.getElementById('total-count');
+    const filterBtns = document.querySelectorAll('.filter-btn');
+
+    const editModal = document.getElementById('edit-modal');
+    const editForm = document.getElementById('edit-form');
+    const closeModalBtn = document.querySelector('.close-modal');
+    const cancelEditBtn = document.querySelector('.cancel-edit');
+
+    // 오늘 날짜 기본 세팅
+    document.getElementById('plan-date').value = new Date().toISOString().substring(0, 10);
+
+    // 초기 랜더링
+    renderPlans();
+
+    // 계획 추가 이벤트
+    planForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const newPlan = {
+            id: Date.now(),
+            title: document.getElementById('plan-title').value,
+            category: document.getElementById('plan-category').value,
+            date: document.getElementById('plan-date').value,
+            time: document.getElementById('plan-time').value,
+            priority: document.getElementById('plan-priority').value,
+            status: '시작전',
+            desc: document.getElementById('plan-desc').value
+        };
+
+        plans.unshift(newPlan);
+        saveAndRender();
+        planForm.reset();
+        document.getElementById('plan-date').value = new Date().toISOString().substring(0, 10);
+    });
+
+    // 수정 모달 열기 함수
+    window.openEditModal = function(id) {
+        const plan = plans.find(p => p.id === id);
+        if (!plan) return;
+
+        document.getElementById('edit-id').value = plan.id;
+        document.getElementById('edit-title').value = plan.title;
+        document.getElementById('edit-category').value = plan.category;
+        document.getElementById('edit-status').value = plan.status;
+        document.getElementById('edit-date').value = plan.date || '';
+        document.getElementById('edit-time').value = plan.time || '';
+        document.getElementById('edit-priority').value = plan.priority;
+        document.getElementById('edit-desc').value = plan.desc || '';
+
+        editModal.style.display = 'flex';
+    };
+
+    // 수정 저장 이벤트
+    editForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const id = parseInt(document.getElementById('edit-id').value);
+        const index = plans.findIndex(p => p.id === id);
+
+        if (index !== -1) {
+            plans[index] = {
+                ...plans[index],
+                title: document.getElementById('edit-title').value,
+                category: document.getElementById('edit-category').value,
+                status: document.getElementById('edit-status').value,
+                date: document.getElementById('edit-date').value,
+                time: document.getElementById('edit-time').value,
+                priority: document.getElementById('edit-priority').value,
+                desc: document.getElementById('edit-desc').value
+            };
+            saveAndRender();
+            closeModal();
+        }
+    });
+
+    // 모달 닫기
+    function closeModal() {
+        editModal.style.display = 'none';
+    }
+
+    closeModalBtn.addEventListener('click', closeModal);
+    cancelEditBtn.addEventListener('click', closeModal);
+    window.addEventListener('click', (e) => {
+        if (e.target === editModal) closeModal();
+    });
+
+    // 계획 삭제
+    window.deletePlan = function(id) {
+        if (confirm('정말로 이 일정을 삭제하시겠습니까?')) {
+            plans = plans.filter(p => p.id !== id);
+            saveAndRender();
+        }
+    };
+
+    // 완료 상태 토글
+    window.toggleComplete = function(id) {
+        const plan = plans.find(p => p.id === id);
+        if (plan) {
+            plan.status = plan.status === '완료' ? '시작전' : '완료';
+            saveAndRender();
+        }
+    };
+
+    // 필터링 버튼 클릭 이벤트
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            filterBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentFilter = btn.dataset.filter;
+            renderPlans();
+        });
+    });
+
+    // 로컬스토리지 저장 및 화면 갱신
+    function saveAndRender() {
+        localStorage.setItem('smart_plans', JSON.stringify(plans));
+        renderPlans();
+    }
+
+    // 화면 랜더링
+    function renderPlans() {
+        plansList.innerHTML = '';
+        
+        const filteredPlans = plans.filter(plan => {
+            if (currentFilter === 'all') return true;
+            return plan.status === currentFilter;
+        });
+
+        totalCountEl.textContent = filteredPlans.length;
+
+        if (filteredPlans.length === 0) {
+            plansList.innerHTML = '<li style="text-align:center; padding: 30px; color: #888;">등록되었거나 조건에 맞는 일정이 없습니다.</li>';
+            return;
+        }
+
+        filteredPlans.forEach(plan => {
+            const li = document.createElement('li');
+            li.className = `plan-item status-${plan.status}`;
+            
+            const dateText = plan.date ? plan.date : '날짜 미정';
+            const timeText = plan.time ? plan.time : '';
+            
+            li.innerHTML = `
+                <div class="plan-content">
+                    <div class="plan-header-line">
+                        <span class="badge badge-cat">${plan.category}</span>
+                        <span class="badge badge-status">${plan.status}</span>
+                        <span class="badge badge-prio-${plan.priority}">${plan.priority}</span>
+                        <span class="plan-title">${escapeHtml(plan.title)}</span>
+                    </div>
+                    <div class="plan-meta">
+                        📅 ${dateText} ${timeText ? '⏰ ' + timeText : ''}
+                    </div>
+                    ${plan.desc ? `<div class="plan-desc">${escapeHtml(plan.desc)}</div>` : ''}
+                </div>
+                <div class="plan-actions">
+                    <button class="action-btn toggle-btn" onclick="toggleComplete(${plan.id})" title="완료 전환">
+                        ${plan.status === '완료' ? '↩️' : '✅'}
+                    </button>
+                    <button class="action-btn edit-btn" onclick="openEditModal(${plan.id})" title="수정하기">
+                        ✏️ 수정
+                    </button>
+                    <button class="action-btn delete-btn" onclick="deletePlan(${plan.id})" title="삭제하기">
+                        🗑️
+                    </button>
+                </div>
+            `;
+            plansList.appendChild(li);
+        });
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+});
+"""
+
+with open("planner_files/app.js", "w", encoding="utf-8") as f:
+    f.write(js_content)
+
+# 4. Excel Workbook
+wb = openpyxl.Workbook()
+ws = wb.active
+ws.title = "일정관리표"
+
+font_title = Font(name="맑은 고딕", size=16, bold=True, color="1F497D")
+font_header = Font(name="맑은 고딕", size=11, bold=True, color="FFFFFF")
+font_body = Font(name="맑은 고딕", size=10)
+fill_header = PatternFill(start_color="2B5876", end_color="2B5876", fill_type="solid")
+
+border_thin = Side(style="thin", color="D9D9D9")
+border_box = Border(left=border_thin, right=border_thin, top=border_thin, bottom=border_thin)
+
+ws["A1"] = "📋 일정 계획 및 수정 관리표"
+ws["A1"].font = font_title
+ws.merge_cells("A1:H1")
+
+headers = ["ID", "날짜", "시간", "카테고리", "일정 제목", "우선순위", "진행 상태", "상세 메모"]
+ws.append([]) # row 2
+ws.append(headers) # row 3
+
+for col_idx, header in enumerate(headers, start=1):
+    cell = ws.cell(row=3, column=col_idx)
+    cell.font = font_header
+    cell.fill = fill_header
+    cell.alignment = Alignment(horizontal="center", vertical="center")
+
+sample_data = [
+    [1, "2026-07-28", "10:00", "업무", "프로젝트 기획안 작성 및 수정", "높음", "진행중", "핵심 요구사항 반영"],
+    [2, "2026-07-28", "14:00", "공부", "파이썬 데이터 분석 복습", "보통", "시작전", "Pandas 및 Openpyxl"],
+    [3, "2026-07-28", "19:00", "운동", "유산소 운동 40분", "보통", "완료", "목표 달성"],
+    [4, "2026-07-29", "11:00", "개인", "은행 업무 및 서류 제출", "높음", "연기", "다음 주로 일정 연기됨"],
+    [5, "2026-07-30", "15:00", "업무", "팀 주간 회의 준비", "보통", "시작전", "PPT 자작 및 자료 검토"]
+]
+
+for row_data in sample_data:
+    ws.append(row_data)
+
+for row in range(4, 4 + len(sample_data)):
+    for col in range(1, 9):
+        cell = ws.cell(row=row, column=col)
+        cell.font = font_body
+        cell.border = border_box
+        if col in [1, 2, 3, 4, 6, 7]:
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+dv_status = DataValidation(type="list", formula1='"시작전,진행중,완료,연기"', allow_blank=True)
+dv_priority = DataValidation(type="list", formula1='"높음,보통,낮음"', allow_blank=True)
+
+ws.add_data_validation(dv_status)
+ws.add_data_validation(dv_priority)
+
+dv_status.add("G4:G100")
+dv_priority.add("F4:F100")
+
+for col in ws.columns:
+    max_len = max(len(str(cell.value or '')) for cell in col)
+    col_letter = get_column_letter(col[0].column)
+    ws.column_dimensions[col_letter].width = max(max_len + 5, 12)
+
+ws.column_dimensions["E"].width = 30
+ws.column_dimensions["H"].width = 30
+
+wb.save("planner_files/planner_template.xlsx")
+
+# 5. README File
+readme_content = """# 📋 일정 관리 플래너 패키지 (수정 기능 포함)
+
+본 패키지는 계획을 손쉽게 작성하고, 언제든지 유연하게 수정 및 진행상태를 관리할 수 있는 파일 모음입니다.
+
+---
+
+## 📂 구성 파일 안내
+
+1. **`index.html` / `styles.css` / `app.js` (웹 스마트 플래너)**
+   - **사용 방법**: `index.html` 파일을 크롬/엣지 등의 웹 브라우저에서 마우스 더블 클릭으로 열어 사용합니다.
+   - **주요 기능**:
+     - ➕ **일정 추가**: 제목, 카테고리, 날짜, 시간, 우선순위, 상세 설명 등록
+     - ✏️ **일정 수정**: 각 일정의 '수정' 버튼을 눌러 모달 창에서 내용/상태/시간 변경 및 저장
+     - ✅ **상태 관리**: 시작전 / 진행중 / 완료 / 연기됨 상태 변경 및 필터링
+     - 💾 **자동 저장**: 브라우저 로컬 저장소(localStorage)에 수정 내역 자동 저장
+
+2. **`planner_template.xlsx` (엑셀 일정 관리표)**
+   - **사용 방법**: 엑셀(Microsoft Excel) 또는 한셀에서 실행
+   - **주요 기능**: 드롭다운 선택(우선순위, 진행 상태)으로 언제든지 쉽게 일정을 수정할 수 있는 서식 제공
+
+---
+"""
+
+with open("planner_files/README.md", "w", encoding="utf-8") as f:
+    f.write(readme_content)
+
+# Zip Packaging
+zip_filename = "planner_package.zip"
+with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+    for root, dirs, files in os.walk("planner_files"):
+        for file in files:
+            file_path = os.path.join(root, file)
+            arcname = os.path.relpath(file_path, "planner_files")
+            zipf.write(file_path, arcname)
+
+print(f"ZIP File Created: {zip_filename}")
