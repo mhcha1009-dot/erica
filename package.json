@@ -1,0 +1,9 @@
+{
+  "name": "ai-student-planner",
+  "version": "1.0.0",
+  "description": "AI 기반 학생 계획표 웹앱",
+  "main": "index.html",
+  "scripts": {
+    "start": "node api/generate.js"
+  }
+}

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 학생 계획표 📝</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
+    
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Noto Sans KR', sans-serif;
+      background-color: #f0f8ff;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      background-color: #ffffff;
+      padding: 24px 20px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border-bottom: 4px solid #87cefa;
+    }
+
+    h1 {
+      color: #1e90ff;
+      margin: 0 0 16px 0;
+      font-size: 24px;
+      text-align: center;
+    }
+
+    .input-container {
+      display: flex;
+      width: 100%;
+      max-width: 800px;
+      gap: 10px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 14px 16px;
+      border: 2px solid #b0c4de;
+      border-radius: 8px;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+
+    input[type="text"]:focus {
+      border-color: #1e90ff;
+    }
+
+    button {
+      padding: 14px 28px;
+      background-color: #1e90ff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      white-space: nowrap;
+    }
+
+    button:hover {
+      background-color: #0073e6;
+    }
+
+    .loading {
+      text-align: center;
+      color: #1e90ff;
+      font-weight: bold;
+      display: none;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+
+    .main-content {
+      display: flex;
+      flex: 1;
+      padding: 24px 20px;
+      gap: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    @media (max-width: 768px) {
+      .main-content {
+        flex-direction: column;
+      }
+      .input-container {
+        flex-direction: column;
+      }
+    }
+
+    .panel {
+      background-color: #ffffff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      flex: 1;
+    }
+
+    .left-panel {
+      border-top: 5px solid #4682b4;
+    }
+
+    .right-panel {
+      border-top: 5px solid #87ceeb;
+      background-color: #fbfcff;
+    }
+
+    h2 {
+      color: #4682b4;
+      margin-top: 0;
+      margin-bottom: 16px;
+      border-bottom: 2px dashed #b0c4de;
+      padding-bottom: 10px;
+      font-size: 18px;
+    }
+
+    .timetable-item {
+      display: flex;
+      padding: 12px 0;
+      border-bottom: 1px solid #e6e6e6;
+      align-items: center;
+    }
+
+    .time {
+      font-weight: bold;
+      color: #1e90ff;
+      width: 90px;
+      font-size: 15px;
+    }
+
+    .task {
+      flex: 1;
+      font-size: 15px;
+      color: #444;
+    }
+
+    .explanation-text {
+      line-height: 1.7;
+      font-size: 15px;
+      color: #555;
+      white-space: pre-wrap;
+    }
+
+    .empty-msg {
+      color: #888;
+      font-size: 14px;
+      text-align: center;
+      padding: 40px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>나만의 AI 학생 계획표 🗓️</h1>
+    <div class="input-container">
+      <input type="text" id="promptInput" placeholder="예: 오늘 오후 3시부터 6시까지 기말고사 수학/영어 공부할 계획 짜줘!">
+      <button onclick="generatePlan()">계획 짜기</button>
+    </div>
+    <p class="loading" id="loadingMsg">AI가 열심히 계획을 고민하는 중이에요... 💡</p>
+  </header>
+
+  <div class="main-content">
+    <div class="panel left-panel">
+      <h2>⏰ 타임테이블</h2>
+      <div id="timetableContent">
+        <div class="empty-msg">상단 입력창에 희망하는 계획을 입력해 보세요.</div>
+      </div>
+    </div>
+    
+    <div class="panel right-panel">
+      <h2>✨ AI 멘토의 조언</h2>
+      <div id="explanationContent" class="explanation-text">
+        <div class="empty-msg">AI 멘토가 작성한 따뜻한 조언과 공부 팁이 여기에 표시됩니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentTimetable = [];
+    let alarmedTimes = new Set();
+
+    async function generatePlan() {
+      const prompt = document.getElementById('promptInput').value.trim();
+      if (!prompt) {
+        alert('어떤 계획을 세우고 싶은지 입력해주세요!');
+        return;
+      }
+
+      document.getElementById('loadingMsg').style.display = 'block';
+      document.getElementById('timetableContent').innerHTML = '';
+      document.getElementById('explanationContent').innerHTML = '';
+      currentTimetable = [];
+      alarmedTimes.clear();
+
+      try {
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt })
+        });
+
+        const data = await response.json();
+        
+        if (data.error) {
+          alert('오류: ' + data.error);
+          return;
+        }
+
+        currentTimetable = data.timetable || [];
+        renderTimetable(currentTimetable);
+        renderExplanation(data.explanation || '');
+
+      } catch (error) {
+        alert('계획을 생성하지 못했습니다. 다시 시도해주세요.');
+        console.error(error);
+      } finally {
+        document.getElementById('loadingMsg').style.display = 'none';
+      }
+    }
+
+    function renderTimetable(timetable) {
+      const container = document.getElementById('timetableContent');
+      container.innerHTML = '';
+      
+      if (!timetable || timetable.length === 0) {
+        container.innerHTML = '<div class="empty-msg">생성된 일정이 없습니다.</div>';
+        return;
+      }
+
+      timetable.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'timetable-item';
+        div.innerHTML = `<div class="time">${item.time}</div><div class="task">${item.task}</div>`;
+        container.appendChild(div);
+      });
+    }
+
+    function renderExplanation(text) {
+      document.getElementById('explanationContent').innerText = text;
+    }
+
+    // 알람 기능 (매 10초마다 체크)
+    setInterval(() => {
+      if (currentTimetable.length === 0) return;
+
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const currentTimeString = `${hours}:${minutes}`;
+
+      currentTimetable.forEach(item => {
+        if (item.time === currentTimeString && !alarmedTimes.has(item.time)) {
+          alert(`⏰ [일정 알림]\n지금 해야 할 일: ${item.task}`);
+          alarmedTimes.add(item.time);
+        }
+      });
+    }, 10000);
+  </script>
+
+</body>
+</html>
