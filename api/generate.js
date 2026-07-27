@@ -36,6 +36,15 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
+    
+    // 💡 추가된 부분: API에서 정상적인 응답(candidates)이 오지 않은 경우의 에러 처리
+    if (!data.candidates || data.candidates.length === 0) {
+      console.error("Gemini API Error Detail:", data); // Vercel 로그에서 정확한 원인 확인 가능
+      return res.status(500).json({ 
+        error: data.error?.message || 'Gemini API에서 올바른 응답을 받지 못했습니다. API 키가 유효한지 확인해 주세요.' 
+      });
+    }
+
     let aiText = data.candidates[0].content.parts[0].text;
     
     // 마크다운 잔여물(```json 등) 제거
@@ -45,7 +54,7 @@ export default async function handler(req, res) {
     res.status(200).json(parsedData);
 
   } catch (error) {
-    console.error('Gemini API Error:', error);
-    res.status(500).json({ error: '계획을 생성하는 중 문제가 발생했습니다.' });
+    console.error('Server Error:', error);
+    res.status(500).json({ error: '서버에서 계획을 생성하는 중 오류가 발생했습니다.' });
   }
 }
