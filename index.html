@@ -3,212 +3,181 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI 학생 계획표 📝</title>
+  <title>AI 스마트 플래너</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
-    
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Noto Sans KR', sans-serif;
-      background-color: #f0f8ff;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f4f8fb;
       color: #333;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
       display: flex;
       flex-direction: column;
-      min-height: 100vh;
+      gap: 20px;
     }
-
-    header {
+    
+    /* 상단 입력 섹션 */
+    .input-section {
       background-color: #ffffff;
-      padding: 24px 20px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      border-bottom: 4px solid #87cefa;
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 4px 16px rgba(0, 102, 255, 0.08);
+      border: 1px solid #e1effe;
     }
-
-    h1 {
-      color: #1e90ff;
-      margin: 0 0 16px 0;
-      font-size: 24px;
-      text-align: center;
+    .input-section h1 {
+      font-size: 1.5rem;
+      color: #1a56db;
+      margin-bottom: 12px;
     }
-
-    .input-container {
+    .input-group {
       display: flex;
-      width: 100%;
-      max-width: 800px;
       gap: 10px;
     }
-
     input[type="text"] {
       flex: 1;
-      padding: 14px 16px;
-      border: 2px solid #b0c4de;
-      border-radius: 8px;
-      font-size: 15px;
+      padding: 14px 18px;
+      border: 2px solid #e5edff;
+      border-radius: 10px;
+      font-size: 1rem;
       outline: none;
-      transition: border-color 0.3s;
+      transition: border-color 0.2s;
     }
-
     input[type="text"]:focus {
-      border-color: #1e90ff;
+      border-color: #1a56db;
     }
-
     button {
       padding: 14px 28px;
-      background-color: #1e90ff;
+      background-color: #1a56db;
       color: white;
       border: none;
-      border-radius: 8px;
-      font-size: 15px;
+      border-radius: 10px;
+      font-size: 1rem;
       font-weight: bold;
       cursor: pointer;
-      transition: background-color 0.3s;
-      white-space: nowrap;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background-color: #1e429f;
     }
 
-    button:hover {
-      background-color: #0073e6;
+    /* 하단 출력 섹션 (2분할) */
+    .output-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      min-height: 400px;
+    }
+    @media (max-width: 768px) {
+      .output-section { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: #ffffff;
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 4px 16px rgba(0, 102, 255, 0.05);
+      border: 1px solid #e1effe;
+      display: flex;
+      flex-direction: column;
+    }
+    .card h2 {
+      font-size: 1.2rem;
+      color: #1e429f;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #ebf5ff;
+    }
+
+    /* 타임테이블 스타일 */
+    .timetable-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+      max-height: 500px;
+    }
+    .timetable-item {
+      display: flex;
+      align-items: center;
+      background-color: #f0f7ff;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border-left: 4px solid #1a56db;
+    }
+    .timetable-time {
+      font-weight: bold;
+      color: #1a56db;
+      width: 80px;
+    }
+    .timetable-task {
+      flex: 1;
+    }
+
+    /* 설명 텍스트 스타일 */
+    .description-text {
+      line-height: 1.6;
+      white-space: pre-wrap;
+      color: #4b5563;
+      overflow-y: auto;
+      max-height: 500px;
     }
 
     .loading {
       text-align: center;
-      color: #1e90ff;
+      color: #1a56db;
       font-weight: bold;
       display: none;
-      margin-top: 12px;
-      font-size: 14px;
-    }
-
-    .main-content {
-      display: flex;
-      flex: 1;
-      padding: 24px 20px;
-      gap: 20px;
-      max-width: 1200px;
-      margin: 0 auto;
-      width: 100%;
-    }
-
-    @media (max-width: 768px) {
-      .main-content {
-        flex-direction: column;
-      }
-      .input-container {
-        flex-direction: column;
-      }
-    }
-
-    .panel {
-      background-color: #ffffff;
-      border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-      flex: 1;
-    }
-
-    .left-panel {
-      border-top: 5px solid #4682b4;
-    }
-
-    .right-panel {
-      border-top: 5px solid #87ceeb;
-      background-color: #fbfcff;
-    }
-
-    h2 {
-      color: #4682b4;
-      margin-top: 0;
-      margin-bottom: 16px;
-      border-bottom: 2px dashed #b0c4de;
-      padding-bottom: 10px;
-      font-size: 18px;
-    }
-
-    .timetable-item {
-      display: flex;
-      padding: 12px 0;
-      border-bottom: 1px solid #e6e6e6;
-      align-items: center;
-    }
-
-    .time {
-      font-weight: bold;
-      color: #1e90ff;
-      width: 90px;
-      font-size: 15px;
-    }
-
-    .task {
-      flex: 1;
-      font-size: 15px;
-      color: #444;
-    }
-
-    .explanation-text {
-      line-height: 1.7;
-      font-size: 15px;
-      color: #555;
-      white-space: pre-wrap;
-    }
-
-    .empty-msg {
-      color: #888;
-      font-size: 14px;
-      text-align: center;
-      padding: 40px 0;
+      padding: 20px;
     }
   </style>
 </head>
 <body>
 
-  <header>
-    <h1>나만의 AI 학생 계획표 🗓️</h1>
-    <div class="input-container">
-      <input type="text" id="promptInput" placeholder="예: 오늘 오후 3시부터 6시까지 기말고사 수학/영어 공부할 계획 짜줘!">
-      <button onclick="generatePlan()">계획 짜기</button>
-    </div>
-    <p class="loading" id="loadingMsg">AI가 열심히 계획을 고민하는 중이에요... 💡</p>
-  </header>
-
-  <div class="main-content">
-    <div class="panel left-panel">
-      <h2>⏰ 타임테이블</h2>
-      <div id="timetableContent">
-        <div class="empty-msg">상단 입력창에 희망하는 계획을 입력해 보세요.</div>
+  <div class="container">
+    <div class="input-section">
+      <h1>✨ AI 스마트 하루 플래너</h1>
+      <div class="input-group">
+        <input type="text" id="userInput" placeholder="예: 오늘 시험공부 일정을 만들어줘, 주말 휴식 계획 짜줘" />
+        <button onclick="generatePlan()">계획 짜기</button>
       </div>
     </div>
-    
-    <div class="panel right-panel">
-      <h2>✨ AI 멘토의 조언</h2>
-      <div id="explanationContent" class="explanation-text">
-        <div class="empty-msg">AI 멘토가 작성한 따뜻한 조언과 공부 팁이 여기에 표시됩니다.</div>
+
+    <div class="loading" id="loading">AI가 즐거운 하루 계획을 생성하고 있습니다... 🚀</div>
+
+    <div class="output-section">
+      <div class="card">
+        <h2>⏱️ 타임테이블</h2>
+        <ul class="timetable-list" id="timetable">
+          <li style="color: #9ca3af;">계획을 입력하면 여기에 시간이 표시됩니다.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>📝 상세 안내 & 팁</h2>
+        <div class="description-text" id="description">
+          계획을 입력하면 상세 설명이 여기에 출력됩니다.
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    let currentTimetable = [];
-    let alarmedTimes = new Set();
+    let activeAlarms = [];
+
+    // 알람 권한 요청
+    if ("Notification" in window) {
+      Notification.requestPermission();
+    }
 
     async function generatePlan() {
-      const prompt = document.getElementById('promptInput').value.trim();
-      if (!prompt) {
-        alert('어떤 계획을 세우고 싶은지 입력해주세요!');
-        return;
-      }
+      const prompt = document.getElementById('userInput').value.trim();
+      if (!prompt) return alert("계획을 입력해 주세요!");
 
-      document.getElementById('loadingMsg').style.display = 'block';
-      document.getElementById('timetableContent').innerHTML = '';
-      document.getElementById('explanationContent').innerHTML = '';
-      currentTimetable = [];
-      alarmedTimes.clear();
+      document.getElementById('loading').style.display = 'block';
 
       try {
         const response = await fetch('/api/generate', {
@@ -218,62 +187,71 @@
         });
 
         const data = await response.json();
-        
+        document.getElementById('loading').style.display = 'none';
+
         if (data.error) {
-          alert('오류: ' + data.error);
+          alert('오류 발생: ' + data.error);
           return;
         }
 
-        currentTimetable = data.timetable || [];
-        renderTimetable(currentTimetable);
-        renderExplanation(data.explanation || '');
+        renderPlan(data);
+        scheduleAlarms(data.schedule);
 
-      } catch (error) {
-        alert('계획을 생성하지 못했습니다. 다시 시도해주세요.');
-        console.error(error);
-      } finally {
-        document.getElementById('loadingMsg').style.display = 'none';
+      } catch (err) {
+        document.getElementById('loading').style.display = 'none';
+        alert('서버 요청 중 오류가 발생했습니다.');
       }
     }
 
-    function renderTimetable(timetable) {
-      const container = document.getElementById('timetableContent');
-      container.innerHTML = '';
+    function renderPlan(data) {
+      // 타임테이블 렌더링
+      const timetableEl = document.getElementById('timetable');
+      timetableEl.innerHTML = '';
       
-      if (!timetable || timetable.length === 0) {
-        container.innerHTML = '<div class="empty-msg">생성된 일정이 없습니다.</div>';
-        return;
-      }
-
-      timetable.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'timetable-item';
-        div.innerHTML = `<div class="time">${item.time}</div><div class="task">${item.task}</div>`;
-        container.appendChild(div);
+      data.schedule.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'timetable-item';
+        li.innerHTML = `
+          <span class="timetable-time">${item.time}</span>
+          <span class="timetable-task">${item.task}</span>
+        `;
+        timetableEl.appendChild(li);
       });
+
+      // 상세 설명 렌더링
+      document.getElementById('description').textContent = data.description;
     }
 
-    function renderExplanation(text) {
-      document.getElementById('explanationContent').innerText = text;
-    }
-
-    // 알람 기능 (매 10초마다 체크)
-    setInterval(() => {
-      if (currentTimetable.length === 0) return;
+    // 시간 알람 등록 기능
+    function scheduleAlarms(schedule) {
+      // 기존 타이머 초기화
+      activeAlarms.forEach(id => clearTimeout(id));
+      activeAlarms = [];
 
       const now = new Date();
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const currentTimeString = `${hours}:${minutes}`;
 
-      currentTimetable.forEach(item => {
-        if (item.time === currentTimeString && !alarmedTimes.has(item.time)) {
-          alert(`⏰ [일정 알림]\n지금 해야 할 일: ${item.task}`);
-          alarmedTimes.add(item.time);
+      schedule.forEach(item => {
+        const [hours, minutes] = item.time.split(':').map(Number);
+        const targetTime = new Date();
+        targetTime.setHours(hours, minutes, 0, 0);
+
+        // 미래의 시간일 경우에만 알람 등록
+        const diffMs = targetTime.getTime() - now.getTime();
+        if (diffMs > 0) {
+          const timerId = setTimeout(() => {
+            triggerAlarm(item.task);
+          }, diffMs);
+          activeAlarms.push(timerId);
         }
       });
-    }, 10000);
-  </script>
+    }
 
+    function triggerAlarm(task) {
+      alert(`🔔 [알람] 할 시간입니다:\n${task}`);
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("⏱️ 일정 알람", { body: task });
+      }
+    }
+  </script>
 </body>
 </html>
