@@ -25,7 +25,30 @@ export default async function handler(req, res) {
   `;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+    // 💡 1단계: 현재 API 키로 사용 가능한 전체 모델 목록을 구글에서 먼저 가져옵니다.
+    const modelListRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const modelListData = await modelListRes.json();
+
+    if (!modelListData.models) {
+      console.error("Model List Error:", modelListData);
+      return res.status(500).json({ error: '구글 서버에서 사용 가능한 모델 목록을 가져오지 못했습니다. API 키를 다시 확인해 주세요.' });
+    }
+
+    // 텍스트 생성(generateContent) 기능을 지원하는 모델들만 추려냅니다.
+    const validModels = modelListData.models
+      .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+      .map(m => m.name); // 예: 'models/gemini-2.0-flash' 등 현재 작동하는 이름
+
+    if (validModels.length === 0) {
+      return res.status(500).json({ error: '이 API 키로 텍스트 생성을 지원하는 모델이 없습니다.' });
+    }
+
+    // 빠르고 가벼운 'flash' 모델을 최우선으로 찾고, 없으면 사용 가능한 첫 번째 모델을 알아서 선택합니다.
+    const targetModel = validModels.find(m => m.includes('flash')) || validModels[0];
+    console.log("✅ 자동 탐색 및 선택된 모델:", targetModel);
+
+    // 💡 2단계: 찾아낸 정확한 모델 이름으로 계획표 생성을 요청합니다.
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${targetModel}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -37,11 +60,10 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     
-    // 💡 추가된 부분: API에서 정상적인 응답(candidates)이 오지 않은 경우의 에러 처리
     if (!data.candidates || data.candidates.length === 0) {
-      console.error("Gemini API Error Detail:", data); // Vercel 로그에서 정확한 원인 확인 가능
+      console.error("Gemini API Error Detail:", data);
       return res.status(500).json({ 
-        error: data.error?.message || 'Gemini API에서 올바른 응답을 받지 못했습니다. API 키가 유효한지 확인해 주세요.' 
+        error: data.error?.message || 'AI가 올바른 응답을 생성하지 못했습니다.' 
       });
     }
 
