@@ -13,14 +13,12 @@
       background-color: #f0f8ff; color: #333; display: flex; flex-direction: column; min-height: 100vh;
     }
     
-    /* 상단 헤더 */
     header {
       background-color: #ffffff; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);
       border-bottom: 4px solid #1e90ff; text-align: center;
     }
     h1 { color: #1e90ff; margin: 0; font-size: 24px; }
     
-    /* 전체 레이아웃 (좌/우 분할) */
     .dashboard {
       display: flex; gap: 24px; max-width: 1400px; margin: 24px auto; padding: 0 24px; width: 100%; align-items: flex-start;
     }
@@ -32,7 +30,6 @@
       .left-column, .right-column { width: 100%; min-width: auto; }
     }
 
-    /* 공통 패널 스타일 */
     .panel {
       background: #ffffff; border-radius: 12px; padding: 24px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.05);
@@ -42,7 +39,6 @@
       padding-bottom: 10px; border-bottom: 2px dashed #d0e3ff;
     }
 
-    /* 왼쪽: 입력창 스타일 */
     .input-panel { border-top: 5px solid #1e90ff; }
     .subject-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
     .subject-card {
@@ -71,14 +67,12 @@
     }
     .submit-btn:hover { background-color: #0073e6; }
 
-    /* 왼쪽: 타이머 스타일 */
     .timer-panel { border-top: 5px solid #2ed573; text-align: center; }
     .timer-mode-badge {
       display: inline-block; padding: 4px 10px; background-color: #e8fae8; color: #2ed573;
       border-radius: 12px; font-size: 12px; font-weight: bold; margin-bottom: 12px;
     }
     
-    /* 스핀박스 스타일 (시, 분, 초 화살표 조절) */
     .timer-input-box {
       display: flex; justify-content: center; align-items: center; gap: 6px; margin-bottom: 12px;
     }
@@ -107,7 +101,6 @@
     .btn-pause { background-color: #ffa502; } .btn-pause:hover { background-color: #e09200; }
     .btn-reset { background-color: #ff4757; } .btn-reset:hover { background-color: #d63031; }
 
-    /* 오른쪽: 결과 패널 스타일 */
     .result-panel { border-top: 5px solid #4682b4; }
     .loading { text-align: center; color: #1e90ff; font-weight: bold; display: none; padding: 40px 0; font-size: 16px; }
     .empty-msg { color: #888; font-size: 14px; text-align: center; padding: 60px 0; }
@@ -165,15 +158,15 @@
 
         <div class="timer-input-box">
           <div class="spin-group">
-            <input type="number" id="customHourInput" class="spinner-input" value="0" min="0" max="99">
+            <input type="number" id="customHourInput" class="spinner-input" value="0" min="0" max="99" oninput="checkSpinnerLimit(this, 99)">
             <span style="font-size: 13px; font-weight: bold;">시</span>
           </div>
           <div class="spin-group">
-            <input type="number" id="customMinInput" class="spinner-input" value="25" min="0" max="60">
+            <input type="number" id="customMinInput" class="spinner-input" value="25" min="0" max="60" oninput="checkSpinnerLimit(this, 60)">
             <span style="font-size: 13px; font-weight: bold;">분</span>
           </div>
           <div class="spin-group">
-            <input type="number" id="customSecInput" class="spinner-input" value="0" min="0" max="60">
+            <input type="number" id="customSecInput" class="spinner-input" value="0" min="0" max="60" oninput="checkSpinnerLimit(this, 60)">
             <span style="font-size: 13px; font-weight: bold;">초</span>
           </div>
           <button class="preset-btn" onclick="applyCustomTimer()">적용</button>
@@ -224,11 +217,20 @@
     let currentTimetable = [];
     let alarmedTimes = new Set();
 
-    // --- 타이머 기능 ---
     let timerInterval = null;
-    let timerSeconds = 25 * 60; // 기본값 25분 (1500초)
+    let timerSeconds = 25 * 60;
     let initialSeconds = 25 * 60;
     let isCountdown = true;
+
+    // 화살표 아래로 내릴 때 최솟값(0)보다 아래로 가면 최대값으로 자동 전환되도록 제어하는 함수
+    function checkSpinnerLimit(input, maxLimit) {
+      let val = parseInt(input.value);
+      if (val < 0) {
+        input.value = maxLimit; // 아래를 최대로 내리면 해당 최대값(99, 60, 60)으로 점프
+      } else if (val > maxLimit) {
+        input.value = maxLimit;
+      }
+    }
 
     function updateTimerDisplay() {
       const hrs = String(Math.floor(timerSeconds / 3600)).padStart(2, '0');
@@ -314,7 +316,6 @@
       updateTimerDisplay();
     }
 
-    // --- 과목 추가 기능 ---
     function addSubjectCard() {
       const grid = document.getElementById('subjectGrid');
       const card = document.createElement('div');
@@ -343,7 +344,6 @@
       return result.join(', ');
     }
 
-    // --- AI 계획 생성 ---
     async function generatePlan() {
       const grades = collectGradesData();
       const time = document.getElementById('timeInput').value.trim();
@@ -405,7 +405,6 @@
       document.getElementById('explanationContent').innerText = text;
     }
 
-    // --- 알람 기능 ---
     setInterval(() => {
       if (currentTimetable.length === 0) return;
       const now = new Date();
