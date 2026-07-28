@@ -44,8 +44,7 @@
       display: flex; align-items: center; gap: 8px; background-color: #f8fbff;
       padding: 10px 12px; border-radius: 8px; border: 1px solid #d0e3ff;
     }
-    .subject-label { font-weight: bold; width: 50px; font-size: 14px; color: #333; flex-shrink: 0; }
-    .subject-name-input { width: 70px; padding: 8px; border: 1px solid #b0c4de; border-radius: 6px; font-size: 13px; outline: none; }
+    .subject-name-input { width: 90px; padding: 8px; border: 1px solid #b0c4de; border-radius: 6px; font-size: 13px; outline: none; font-weight: bold; text-align: center; background: #fff; }
     .score-input { flex: 1; padding: 8px; border: 1px solid #b0c4de; border-radius: 6px; font-size: 13px; outline: none; }
     .score-input:focus, .subject-name-input:focus { border-color: #1e90ff; }
     .remove-btn { background: none; border: none; color: #ff6b6b; font-weight: bold; cursor: pointer; padding: 0 4px; font-size: 16px; }
@@ -131,15 +130,15 @@
         <h2 class="panel-title">📊 현재 상태 입력</h2>
         <div class="subject-grid" id="subjectGrid">
           <div class="subject-card">
-            <span class="subject-label">국어</span>
+            <input type="text" class="subject-name-input" value="국어" readonly>
             <input type="text" class="score-input" placeholder="예: 85점 또는 2등급">
           </div>
           <div class="subject-card">
-            <span class="subject-label">수학</span>
+            <input type="text" class="subject-name-input" value="수학" readonly>
             <input type="text" class="score-input" placeholder="예: 50점 또는 5등급">
           </div>
           <div class="subject-card">
-            <span class="subject-label">영어</span>
+            <input type="text" class="subject-name-input" value="영어" readonly>
             <input type="text" class="score-input" placeholder="예: 70점 또는 3등급">
           </div>
         </div>
@@ -204,7 +203,7 @@
     <div class="right-column">
       
       <div id="loadingMsg" class="panel loading">
-        입력하신 시간에 맞춰 맞춤형 일정을 계산 중입니다... 💡 (잠시만 기다려주세요)
+        입력하신 모든 과목과 시간에 맞춰 일정을 계산 중입니다... 💡 (잠시만 기다려주세요)
       </div>
 
       <div class="panel result-panel" id="timetablePanel">
@@ -391,41 +390,42 @@
       const card = document.createElement('div');
       card.className = 'subject-card';
       card.innerHTML = `
-        <input type="text" class="subject-name-input" placeholder="과목명">
+        <input type="text" class="subject-name-input" placeholder="과목명 입력">
         <input type="text" class="score-input" placeholder="점수/등급">
         <button type="button" class="remove-btn" onclick="this.parentElement.remove()">✕</button>
       `;
       grid.appendChild(card);
     }
 
-    // 🌟 사용자가 입력한 시간에 맞춰 실시간으로 시간표를 쪼개주는 스마트 로직
+    // 🌟 과목 개수 제한 해제 및 무조건 전체 수집 로직
     function generatePlan() {
       const timeInput = document.getElementById('timeInput').value.trim();
       if (!timeInput) return alert('공부 가능 시간을 입력해주세요!');
 
-      // 입력한 텍스트에서 숫자(시간)를 찾아내기 위한 정규식 처리
       let numbers = timeInput.match(/\d+/g);
-      let startHour = 16; // 기본값 오후 4시 (16시)
+      let startHour = 16; 
       
       if (numbers && numbers.length > 0) {
         let parsed = parseInt(numbers[0]);
-        // 만약 밤/오후 등의 단어가 들어가고 숫자가 1~12 사이면 오후 시간대로 변환
         if (timeInput.includes('오후') || timeInput.includes('저녁') || timeInput.includes('밤')) {
           if (parsed < 12) parsed += 12;
         }
         startHour = parsed;
       }
 
-      // 과목 수집
-      const nameInputs = document.querySelectorAll('.subject-name-input');
-      const scoreInputs = document.querySelectorAll('.score-input');
+      // 화면에 존재하는 모든 과목 카드를 강제로 순회하며 수집
+      const subjectCards = document.querySelectorAll('.subject-card');
       let subjects = [];
-      const defaultLabels = ['국어', '수학', '영어'];
-      
-      scoreInputs.forEach((input, index) => {
-        let name = index < 3 ? defaultLabels[index] : (nameInputs[index - 3] ? nameInputs[index - 3].value.trim() : `과목${index+1}`);
-        if (!name) name = `과목${index+1}`;
-        let score = input.value.trim() ? input.value.trim() : '입력 없음';
+
+      subjectCards.forEach((card, index) => {
+        let nameInput = card.querySelector('.subject-name-input');
+        let scoreInput = card.querySelector('.score-input');
+        
+        let name = nameInput ? nameInput.value.trim() : '';
+        if (!name) name = `과목${index + 1}`;
+
+        let score = scoreInput && scoreInput.value.trim() ? scoreInput.value.trim() : '입력 없음';
+        
         subjects.push({ name, score });
       });
 
@@ -436,7 +436,6 @@
       setTimeout(() => {
         document.getElementById('loadingMsg').style.display = 'none';
         
-        // 입력된 시작 시간을 바탕으로 분단위 계산하여 타임테이블 생성
         let currentMinutes = startHour * 60;
         let timetableHTML = '';
 
@@ -446,19 +445,18 @@
           return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
         }
 
-        // 입력된 과목들에 맞춰 동적 타임테이블 구성 (과목당 50분 공부 + 10분 휴식)
+        // 추가된 과목 수만큼 타임테이블 무조건 전부 생성
         subjects.forEach((sub, idx) => {
           let studyStart = currentMinutes;
           let studyEnd = currentMinutes + 50;
           timetableHTML += `
             <div class="timetable-item">
               <div class="time">${formatTime(studyStart)} - ${formatTime(studyEnd)}</div>
-              <div class="task">🔥 <strong>${sub.name}</strong> 집중 공략 (현재 점수: ${sub.score})</div>
+              <div class="task">🔥 <strong>${sub.name}</strong> 집중 공략 (성적: ${sub.score})</div>
             </div>
           `;
           currentMinutes = studyEnd;
 
-          // 마지막 과목이 아니면 쉬는 시간 추가
           if (idx < subjects.length - 1) {
             let restStart = currentMinutes;
             let restEnd = currentMinutes + 10;
@@ -474,12 +472,11 @@
 
         document.getElementById('timetableContent').innerHTML = timetableHTML;
 
-        // 맞춤형 피드백 생성
-        const mentoringHTML = `💡 [AI 실시간 분석 리포트]\n\n` +
-          `- 입력하신 가용 시간: "${timeInput}" (기준 시작 시간: ${startHour}시부터 자동 산출)\n` +
-          `- 설정된 총 과목 수: ${subjects.length}개\n\n` +
-          `✨ 입력하신 시간 범위와 과목별 비중에 맞춰 타임테이블이 실시간으로 자동 조율되었습니다.\n` +
-          `🔥 지금 배정된 시간표를 믿고, 왼쪽 타이머를 활용해 철저하게 시간 관리 완주해 봅시다!`;
+        const mentoringHTML = `💡 [AI 전체 과목 무제한 분석 리포트]\n\n` +
+          `- 입력하신 가용 시간: "${timeInput}" (기준 시작 시간: ${startHour}시)\n` +
+          `- 총 등록된 과목: ${subjects.length}개 과목 모두 완벽 반영됨\n\n` +
+          `✨ 추가하신 모든 과목이 누락 없이 시간 순서대로 타임테이블에 완벽히 편성되었습니다.\n` +
+          `🔥 오늘 추가한 과목 전부 다 끝낼 때까지 좌측 타이머로 달립시다!`;
         
         document.getElementById('explanationContent').innerText = mentoringHTML;
 
