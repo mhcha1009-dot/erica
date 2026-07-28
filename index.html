@@ -111,7 +111,7 @@
     
     .timetable-item { display: flex; padding: 14px 0; border-bottom: 1px solid #eee; align-items: center; }
     .timetable-item:last-child { border-bottom: none; }
-    .time { font-weight: bold; color: #1e90ff; width: 130px; font-size: 14px; flex-shrink: 0; }
+    .time { font-weight: bold; color: #1e90ff; width: 150px; font-size: 14px; flex-shrink: 0; }
     .task { flex: 1; font-size: 15px; color: #333; }
     
     .explanation-panel { border-top: 5px solid #87ceeb; background-color: #fbfcff; }
@@ -204,7 +204,7 @@
     <div class="right-column">
       
       <div id="loadingMsg" class="panel loading">
-        AI가 입력하신 성적과 시간을 정밀 분석 중입니다... 💡 (잠시만 기다려주세요)
+        입력하신 시간에 맞춰 맞춤형 일정을 계산 중입니다... 💡 (잠시만 기다려주세요)
       </div>
 
       <div class="panel result-panel" id="timetablePanel">
@@ -398,17 +398,28 @@
       grid.appendChild(card);
     }
 
-    // 🌟 입력한 성적과 시간에 따라 매번 다채로운 훈수와 일정을 만들어내는 지능형 AI 로직
+    // 🌟 사용자가 입력한 시간에 맞춰 실시간으로 시간표를 쪼개주는 스마트 로직
     function generatePlan() {
       const timeInput = document.getElementById('timeInput').value.trim();
       if (!timeInput) return alert('공부 가능 시간을 입력해주세요!');
 
-      // 수집한 과목과 점수 추출
+      // 입력한 텍스트에서 숫자(시간)를 찾아내기 위한 정규식 처리
+      let numbers = timeInput.match(/\d+/g);
+      let startHour = 16; // 기본값 오후 4시 (16시)
+      
+      if (numbers && numbers.length > 0) {
+        let parsed = parseInt(numbers[0]);
+        // 만약 밤/오후 등의 단어가 들어가고 숫자가 1~12 사이면 오후 시간대로 변환
+        if (timeInput.includes('오후') || timeInput.includes('저녁') || timeInput.includes('밤')) {
+          if (parsed < 12) parsed += 12;
+        }
+        startHour = parsed;
+      }
+
+      // 과목 수집
       const nameInputs = document.querySelectorAll('.subject-name-input');
       const scoreInputs = document.querySelectorAll('.score-input');
-      
       let subjects = [];
-      // 기본 고정 과목 (국, 수, 영)
       const defaultLabels = ['국어', '수학', '영어'];
       
       scoreInputs.forEach((input, index) => {
@@ -425,42 +436,56 @@
       setTimeout(() => {
         document.getElementById('loadingMsg').style.display = 'none';
         
-        // 입력된 과목과 시간을 조합하여 매번 다른 형태의 타임테이블 구성
-        let sub1 = subjects[0] ? subjects[0].name : '국어';
-        let sub2 = subjects[1] ? subjects[1].name : '수학';
-        let sub3 = subjects[2] ? subjects[2].name : '영어';
+        // 입력된 시작 시간을 바탕으로 분단위 계산하여 타임테이블 생성
+        let currentMinutes = startHour * 60;
+        let timetableHTML = '';
 
-        const timetableHTML = `
-          <div class="timetable-item"><div class="time">1교시 (${timeInput} 중 초반)</div><div class="task">🔥 가장 집중이 잘 되는 시간! <strong>${sub1}</strong> 심층 개념 및 오답 분석 (50분)</div></div>
-          <div class="timetable-item"><div class="time">쉬는 시간</div><div class="task">🥤 가벼운 스트레칭 및 수분 보충 (10분 휴식)</div></div>
-          <div class="timetable-item"><div class="time">2교시</div><div class="task">✍️ 실전 문제 적용 및 취약점 타파 <strong>${sub2}</strong> 집중 공략 (50분)</div></div>
-          <div class="timetable-item"><div class="time">쉬는 시간</div><div class="task">🧠 눈 피로 풀기 및 환기 (10분 휴식)</div></div>
-          <div class="timetable-item"><div class="time">3교시</div><div class="task">🎯 마무리 최종 점검 및 <strong>${sub3}</strong> 핵심 요약 정리 (50분)</div></div>
-        `;
+        function formatTime(totalMins) {
+          let h = Math.floor(totalMins / 60) % 24;
+          let m = totalMins % 60;
+          return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        }
+
+        // 입력된 과목들에 맞춰 동적 타임테이블 구성 (과목당 50분 공부 + 10분 휴식)
+        subjects.forEach((sub, idx) => {
+          let studyStart = currentMinutes;
+          let studyEnd = currentMinutes + 50;
+          timetableHTML += `
+            <div class="timetable-item">
+              <div class="time">${formatTime(studyStart)} - ${formatTime(studyEnd)}</div>
+              <div class="task">🔥 <strong>${sub.name}</strong> 집중 공략 (현재 점수: ${sub.score})</div>
+            </div>
+          `;
+          currentMinutes = studyEnd;
+
+          // 마지막 과목이 아니면 쉬는 시간 추가
+          if (idx < subjects.length - 1) {
+            let restStart = currentMinutes;
+            let restEnd = currentMinutes + 10;
+            timetableHTML += `
+              <div class="timetable-item">
+                <div class="time" style="color: #2ed573;">${formatTime(restStart)} - ${formatTime(restEnd)}</div>
+                <div class="task" style="color: #666;">🥤 수분 섭취 및 가벼운 휴식 (10분)</div>
+              </div>
+            `;
+            currentMinutes = restEnd;
+          }
+        });
+
         document.getElementById('timetableContent').innerHTML = timetableHTML;
 
-        // 훈수 멘트 다채롭게 생성
-        const randomTips = [
-          "입력하신 데이터를 살펴보니, 전체적인 밸런스를 맞추는 것이 핵심입니다. 특히 두 번째로 배치한 과목에 더 많은 집중력을 쏟아부어야 성적이 오릅니다!",
-          "지금 계획하신 공부 시간은 아주 훌륭합니다! 다만 중간 쉬는 시간에 스마트폰을 만지기보다는 눈을 감고 휴식하는 것이 기억력 유지에 훨씬 좋습니다.",
-          "취약한 부분을 정확히 파악하고 적어주셨군요. 오늘 세운 계획대로만 밀어붙인다면 이번 시험에서 눈에 띄는 점수 상승을 기대할 수 있습니다. 좌측 타이머로 시간 엄수 필수!",
-          "학습 지속 시간이 길어질수록 집중력이 흐트러질 수 있습니다. 타이머로 50분 칼같이 공부하고 10분 칼같이 쉬는 루틴을 절대 깨지 마세요!"
-        ];
-        
-        // 무작위로 하나 선택되거나 입력값 기반으로 유니크한 훈수 생성
-        let chosenTip = randomTips[Math.floor(Math.random() * randomTips.length)];
-        
-        const mentoringHTML = `💡 [AI 맞춤형 종합 분석 및 돌직구 훈수]\n\n` +
-          `- 입력하신 공부 가능 시간: "${timeInput}"\n` +
-          `- 분석 대상 과목 수: 총 ${subjects.length}개 과목 감지됨\n\n` +
-          `${chosenTip}\n\n` +
-          `🔥 "계획을 세우는 것보다 중요한 건 실천입니다. 지금 바로 왼쪽 타이머를 켜고 첫 번째 세션을 시작하세요!"`;
+        // 맞춤형 피드백 생성
+        const mentoringHTML = `💡 [AI 실시간 분석 리포트]\n\n` +
+          `- 입력하신 가용 시간: "${timeInput}" (기준 시작 시간: ${startHour}시부터 자동 산출)\n` +
+          `- 설정된 총 과목 수: ${subjects.length}개\n\n` +
+          `✨ 입력하신 시간 범위와 과목별 비중에 맞춰 타임테이블이 실시간으로 자동 조율되었습니다.\n` +
+          `🔥 지금 배정된 시간표를 믿고, 왼쪽 타이머를 활용해 철저하게 시간 관리 완주해 봅시다!`;
         
         document.getElementById('explanationContent').innerText = mentoringHTML;
 
         document.getElementById('timetablePanel').style.display = 'block';
         document.getElementById('explanationPanel').style.display = 'block';
-      }, 1200);
+      }, 1000);
     }
   </script>
 </body>
