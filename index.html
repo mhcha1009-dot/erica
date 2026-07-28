@@ -158,15 +158,15 @@
 
         <div class="timer-input-box">
           <div class="spin-group">
-            <input type="number" id="customHourInput" class="spinner-input" value="0" min="0" max="99" oninput="checkSpinnerLimit(this, 99)">
+            <input type="number" id="customHourInput" class="spinner-input" value="0" min="0" max="99">
             <span style="font-size: 13px; font-weight: bold;">시</span>
           </div>
           <div class="spin-group">
-            <input type="number" id="customMinInput" class="spinner-input" value="25" min="0" max="60" oninput="checkSpinnerLimit(this, 60)">
+            <input type="number" id="customMinInput" class="spinner-input" value="25" min="0" max="60">
             <span style="font-size: 13px; font-weight: bold;">분</span>
           </div>
           <div class="spin-group">
-            <input type="number" id="customSecInput" class="spinner-input" value="0" min="0" max="60" oninput="checkSpinnerLimit(this, 60)">
+            <input type="number" id="customSecInput" class="spinner-input" value="0" min="0" max="60">
             <span style="font-size: 13px; font-weight: bold;">초</span>
           </div>
           <button class="preset-btn" onclick="applyCustomTimer()">적용</button>
@@ -221,16 +221,6 @@
     let timerSeconds = 25 * 60;
     let initialSeconds = 25 * 60;
     let isCountdown = true;
-
-    // 화살표 아래로 내릴 때 최솟값(0)보다 아래로 가면 최대값으로 자동 전환되도록 제어하는 함수
-    function checkSpinnerLimit(input, maxLimit) {
-      let val = parseInt(input.value);
-      if (val < 0) {
-        input.value = maxLimit; // 아래를 최대로 내리면 해당 최대값(99, 60, 60)으로 점프
-      } else if (val > maxLimit) {
-        input.value = maxLimit;
-      }
-    }
 
     function updateTimerDisplay() {
       const hrs = String(Math.floor(timerSeconds / 3600)).padStart(2, '0');
