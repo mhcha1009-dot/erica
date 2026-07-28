@@ -335,13 +335,14 @@
       // 1.5초 뒤에 서버 없이 자바스크립트로 직접 가짜 결과 화면을 그려줌 (무조건 반영됨)
       setTimeout(() => {
         document.getElementById('loadingMsg').style.display = 'none';
-        
-        // 타임테이블 결과 그리기
+  
+ // 타임테이블 결과 그리기 (시간으로 변경!)
         const timetableHTML = `
-          <div class="timetable-item"><div class="time">1교시</div><div class="task">가장 취약한 과목 개념 복습 (50분)</div></div>
-          <div class="timetable-item"><div class="time">쉬는시간</div><div class="task">수분 섭취 및 스트레칭 (10분)</div></div>
-          <div class="timetable-item"><div class="time">2교시</div><div class="task">입력하신 과목 문제 풀이 적용 (50분)</div></div>
-          <div class="timetable-item"><div class="time">3교시</div><div class="task">오답 노트 정리 및 약점 보완 (50분)</div></div>
+          <div class="timetable-item"><div class="time">16:00 - 16:50</div><div class="task">가장 취약한 과목 개념 복습 (50분)</div></div>
+          <div class="timetable-item"><div class="time">16:50 - 17:00</div><div class="task">수분 섭취 및 스트레칭 (10분)</div></div>
+          <div class="timetable-item"><div class="time">17:00 - 17:50</div><div class="task">입력하신 과목 문제 풀이 적용 (50분)</div></div>
+          <div class="timetable-item"><div class="time">18:00 - 18:50</div><div class="task">오답 노트 정리 및 약점 보완 (50분)</div></div>
+        `;
         `;
         document.getElementById('timetableContent').innerHTML = timetableHTML;
 
