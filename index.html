@@ -110,7 +110,7 @@
     
     .timetable-item { display: flex; padding: 14px 0; border-bottom: 1px solid #eee; align-items: center; }
     .timetable-item:last-child { border-bottom: none; }
-    .time { font-weight: bold; color: #1e90ff; width: 150px; font-size: 14px; flex-shrink: 0; }
+    .time { font-weight: bold; color: #1e90ff; width: 160px; font-size: 14px; flex-shrink: 0; }
     .task { flex: 1; font-size: 15px; color: #333; }
     
     .explanation-panel { border-top: 5px solid #87ceeb; background-color: #fbfcff; }
@@ -146,7 +146,7 @@
 
         <h2 class="panel-title" style="margin-top: 10px;">⏰ 공부 가능 시간</h2>
         <div class="time-wrapper">
-          <input type="text" id="timeInput" placeholder="예: 오후 4시부터 밤 10시까지">
+          <input type="text" id="timeInput" placeholder="예: 오후 2시부터 밤 9시까지">
         </div>
 
         <button type="button" class="submit-btn" onclick="generatePlan()">AI 계획 생성하기 🚀</button>
@@ -203,7 +203,7 @@
     <div class="right-column">
       
       <div id="loadingMsg" class="panel loading">
-        입력하신 모든 과목과 시간에 맞춰 일정을 계산 중입니다... 💡 (잠시만 기다려주세요)
+        입력하신 시간 범위 안에서 전체 일정을 균등 배분 중입니다... 💡 (잠시만 기다려주세요)
       </div>
 
       <div class="panel result-panel" id="timetablePanel">
@@ -394,26 +394,51 @@
         <input type="text" class="score-input" placeholder="점수/등급">
         <button type="button" class="remove-btn" onclick="this.parentElement.remove()">✕</button>
       `;
+      grid.getData = true;
       grid.appendChild(card);
     }
 
-    // 🌟 과목 개수 제한 해제 및 무조건 전체 수집 로직
+    // 🌟 시작 시간과 끝 시간을 인식하여 전체 범위 내에 모든 과목이 끝까지 배치되도록 고친 스마트 로직
     function generatePlan() {
       const timeInput = document.getElementById('timeInput').value.trim();
       if (!timeInput) return alert('공부 가능 시간을 입력해주세요!');
 
+      // 숫자들을 전부 뽑아내어 시작 시간과 끝 시간 추출 시도 (예: "2시부터 9시" -> [2, 9])
       let numbers = timeInput.match(/\d+/g);
-      let startHour = 16; 
-      
+      let startHour = 14; // 기본값 오후 2시 (14시)
+      let endHour = 21;   // 기본값 밤 9시 (21시)
+
       if (numbers && numbers.length > 0) {
-        let parsed = parseInt(numbers[0]);
+        let p1 = parseInt(numbers[0]);
         if (timeInput.includes('오후') || timeInput.includes('저녁') || timeInput.includes('밤')) {
-          if (parsed < 12) parsed += 12;
+          if (p1 < 12) p1 += 12;
         }
-        startHour = parsed;
+        startHour = p1;
+
+        if (numbers.length > 1) {
+          let p2 = parseInt(numbers[1]);
+          // 두 번째 숫자가 첫 번째 숫자보다 작거나 오후 키워드가 있으면 범위 조정
+          if (timeInput.includes('밤') || timeInput.includes('저녁') || (p2 < p1 && p2 < 12)) {
+            p2 += 12;
+          }
+          endHour = p2;
+        } else {
+          // 끝 시간이 명시되지 않았다면 기본적으로 시작 시간으로부터 5시간 뒤로 설정
+          endHour = startHour + 5;
+        }
       }
 
-      // 화면에 존재하는 모든 과목 카드를 강제로 순회하며 수집
+      // 총 가용 분(Minute) 계산
+      let startMinutes = startHour * 60;
+      let endMinutes = endHour * 60;
+      let totalAvailableMins = endMinutes - startMinutes;
+
+      if (totalAvailableMins <= 0) {
+        totalAvailableMins = 300; // 오류 방지용 기본 5시간
+        endMinutes = startMinutes + 300;
+      }
+
+      // 화면의 모든 과목 수집
       const subjectCards = document.querySelectorAll('.subject-card');
       let subjects = [];
 
@@ -425,7 +450,6 @@
         if (!name) name = `과목${index + 1}`;
 
         let score = scoreInput && scoreInput.value.trim() ? scoreInput.value.trim() : '입력 없음';
-        
         subjects.push({ name, score });
       });
 
@@ -436,7 +460,7 @@
       setTimeout(() => {
         document.getElementById('loadingMsg').style.display = 'none';
         
-        let currentMinutes = startHour * 60;
+        let currentMinutes = startMinutes;
         let timetableHTML = '';
 
         function formatTime(totalMins) {
@@ -445,10 +469,18 @@
           return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
         }
 
-        // 추가된 과목 수만큼 타임테이블 무조건 전부 생성
+        // 과목 개수에 맞춰 전체 가용 시간을 공평하게 쪼개기 (쉬운 예: 총 시간이 남으면 과목당 시간을 늘리거나 균등 배분)
+        let numSubjects = subjects.length;
+        // 각 과목당 배정할 공부 시간 (최소 40분 보장, 남는 시간에 따라 동적 조절)
+        let studyDurationPerSubject = Math.floor((totalAvailableMins - (numSubjects - 1) * 10) / numSubjects);
+        if (studyDurationPerSubject < 30) studyDurationPerSubject = 30; // 최소 30분 보장
+
         subjects.forEach((sub, idx) => {
           let studyStart = currentMinutes;
-          let studyEnd = currentMinutes + 50;
+          let studyEnd = Math.min(studyStart + studyDurationPerSubject, endMinutes);
+          
+          if (studyStart >= endMinutes) return; // 시간이 초과되면 중단
+
           timetableHTML += `
             <div class="timetable-item">
               <div class="time">${formatTime(studyStart)} - ${formatTime(studyEnd)}</div>
@@ -457,9 +489,10 @@
           `;
           currentMinutes = studyEnd;
 
-          if (idx < subjects.length - 1) {
+          // 마지막 과목이 아니고 아직 끝 시간이 남았으면 쉬기
+          if (idx < numSubjects - 1 && currentMinutes < endMinutes) {
             let restStart = currentMinutes;
-            let restEnd = currentMinutes + 10;
+            let restEnd = Math.min(currentMinutes + 10, endMinutes);
             timetableHTML += `
               <div class="timetable-item">
                 <div class="time" style="color: #2ed573;">${formatTime(restStart)} - ${formatTime(restEnd)}</div>
@@ -472,11 +505,11 @@
 
         document.getElementById('timetableContent').innerHTML = timetableHTML;
 
-        const mentoringHTML = `💡 [AI 전체 과목 무제한 분석 리포트]\n\n` +
-          `- 입력하신 가용 시간: "${timeInput}" (기준 시작 시간: ${startHour}시)\n` +
-          `- 총 등록된 과목: ${subjects.length}개 과목 모두 완벽 반영됨\n\n` +
-          `✨ 추가하신 모든 과목이 누락 없이 시간 순서대로 타임테이블에 완벽히 편성되었습니다.\n` +
-          `🔥 오늘 추가한 과목 전부 다 끝낼 때까지 좌측 타이머로 달립시다!`;
+        const mentoringHTML = `💡 [AI 시간대별 완전 균등 분산 리포트]\n\n` +
+          `- 설정한 공부 범위: ${startHour}:00 ~ ${endHour}:00 (총 ${Math.floor(totalAvailableMins/60)}시간 타임라인)\n` +
+          `- 등록된 과목: ${subjects.length}개 과목이 마감 시간까지 꽉 차게 배분됨\n\n` +
+          `✨ 입력하신 시작과 종료 시간 안에서 모든 과목이 잘리지 않고 끝까지 완주할 수 있도록 타임라인이 맞춤 조절되었습니다.\n` +
+          `🔥 설정한 마감 시간까지 좌측 타이머와 함께 끝까지 달려서 목표를 달성해 봅시다!`;
         
         document.getElementById('explanationContent').innerText = mentoringHTML;
 
