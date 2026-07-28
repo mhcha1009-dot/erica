@@ -92,6 +92,14 @@
     .btn-start { background-color: #2ed573; } .btn-start:hover { background-color: #26af5f; }
     .btn-pause { background-color: #ffa502; } .btn-pause:hover { background-color: #e09200; }
     .btn-reset { background-color: #ff4757; } .btn-reset:hover { background-color: #d63031; }
+    
+    /* 새롭게 추가된 공부 기록 CSS */
+    .btn-record { background-color: #8a2be2; width: 100%; margin-top: 12px; } 
+    .btn-record:hover { background-color: #6a1b9a; }
+    .record-list-container { margin-top: 20px; text-align: left; }
+    .record-list-title { font-size: 14px; color: #555; border-bottom: 2px solid #eee; padding-bottom: 8px; margin-bottom: 10px; font-weight: bold; }
+    .record-item { background: #f9f9f9; border: 1px solid #e0e0e0; padding: 10px; border-radius: 6px; margin-bottom: 8px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+    .record-item strong { color: #8a2be2; font-size: 14px; }
 
     .result-panel { border-top: 5px solid #4682b4; }
     .loading { text-align: center; color: #1e90ff; font-weight: bold; display: none; padding: 40px 0; font-size: 16px; }
@@ -175,6 +183,14 @@
           <button class="timer-btn btn-pause" onclick="pauseTimer()">정지</button>
           <button class="timer-btn btn-reset" onclick="resetTimer()">초기화</button>
         </div>
+
+        <button class="timer-btn btn-record" onclick="recordTime()">💾 현재 공부 시간 기록하기</button>
+
+        <div class="record-list-container">
+          <div class="record-list-title">📚 오늘의 공부 기록</div>
+          <div id="recordList">
+            </div>
+        </div>
       </div>
 
     </div>
@@ -203,22 +219,16 @@
   </div>
 
   <script>
-    // --- 1. 타이머 관련 완벽 제어 ---
     let timerInterval = null;
     let timerSeconds = 25 * 60;
     let initialSeconds = 25 * 60;
     let isCountdown = true;
 
-    // 빈칸이거나 범위를 넘어가면 자동으로 0 또는 최댓값으로 바꿔주는 안전장치
     function checkLimit(input, maxVal) {
       let val = parseInt(input.value);
-      if (isNaN(val)) {
-        input.value = 0;
-      } else if (val < 0) {
-        input.value = maxVal; // 0 밑으로 내리면 최댓값으로
-      } else if (val > maxVal) {
-        input.value = maxVal;
-      }
+      if (isNaN(val)) input.value = 0;
+      else if (val < 0) input.value = maxVal; 
+      else if (val > maxVal) input.value = maxVal;
     }
 
     function updateTimerDisplay() {
@@ -237,7 +247,7 @@
             updateTimerDisplay();
           } else {
             pauseTimer();
-            alert('🔔 [타이머 종료] 시간이 다 되었습니다!');
+            alert('🔔 [타이머 종료] 시간이 다 되었습니다! 잊지 말고 기록을 저장하세요!');
           }
         } else {
           timerSeconds++;
@@ -257,6 +267,55 @@
       updateTimerDisplay(); 
     }
 
+    // 🌟 새롭게 추가된 공부 시간 기록 로직
+    function recordTime() {
+      let elapsedSeconds = 0;
+
+      // 카운트다운 모드일 땐 '처음 설정한 시간 - 남은 시간'이 공부한 시간
+      if (isCountdown) {
+        elapsedSeconds = initialSeconds - timerSeconds;
+      } 
+      // 스톱워치 모드일 땐 화면에 있는 시간이 곧 공부한 시간
+      else {
+        elapsedSeconds = timerSeconds;
+      }
+
+      if (elapsedSeconds <= 0) {
+        alert('아직 기록할 만큼 시간이 흐르지 않았습니다!');
+        return;
+      }
+
+      // 시간을 보기 좋게 변환
+      const hrs = Math.floor(elapsedSeconds / 3600);
+      const mins = Math.floor((elapsedSeconds % 3600) / 60);
+      const secs = elapsedSeconds % 60;
+
+      let timeText = '';
+      if (hrs > 0) timeText += `${hrs}시간 `;
+      if (mins > 0) timeText += `${mins}분 `;
+      timeText += `${secs}초`;
+
+      // 현재 시각 가져오기 (예: 오후 3시 15분)
+      const now = new Date();
+      let ampm = now.getHours() >= 12 ? '오후' : '오전';
+      let currentHour = now.getHours() % 12;
+      currentHour = currentHour ? currentHour : 12; // 0시는 12시로 표시
+      const currentMin = String(now.getMinutes()).padStart(2, '0');
+      const timeStamp = `${ampm} ${currentHour}:${currentMin}`;
+
+      // 리스트에 추가
+      const recordList = document.getElementById('recordList');
+      const item = document.createElement('div');
+      item.className = 'record-item';
+      item.innerHTML = `<span>🕒 ${timeStamp} 저장됨</span> <strong>${timeText}</strong>`;
+      
+      // 맨 위에 새로운 기록이 쌓이도록 prepend 사용
+      recordList.prepend(item);
+
+      // 타이머 리셋
+      resetTimer();
+    }
+
     function setTimerMinutes(mins) {
       pauseTimer();
       isCountdown = true;
@@ -274,7 +333,6 @@
     }
 
     function applyCustomTimer() {
-      // 빈칸 에러 방지를 위해 값을 다시 확실히 체크
       checkLimit(document.getElementById('customHourInput'), 99);
       checkLimit(document.getElementById('customMinInput'), 59);
       checkLimit(document.getElementById('customSecInput'), 59);
@@ -310,7 +368,6 @@
       updateTimerDisplay();
     }
 
-    // --- 2. 입력 및 가상 AI 플래너 생성 (서버 의존 제거) ---
     function addSubjectCard() {
       const grid = document.getElementById('subjectGrid');
       const card = document.createElement('div');
@@ -327,36 +384,30 @@
       const timeInput = document.getElementById('timeInput').value.trim();
       if (!timeInput) return alert('공부 가능 시간을 입력해주세요!');
 
-      // 화면 전환 (로딩 표시)
       document.getElementById('timetablePanel').style.display = 'none';
       document.getElementById('explanationPanel').style.display = 'none';
       document.getElementById('loadingMsg').style.display = 'block';
 
-      // 1.5초 뒤에 서버 없이 자바스크립트로 직접 가짜 결과 화면을 그려줌 (무조건 반영됨)
       setTimeout(() => {
         document.getElementById('loadingMsg').style.display = 'none';
-  
- // 타임테이블 결과 그리기 (시간으로 변경!)
+        
+        // 🌟 수정하신 진짜 시간표 형식으로 원복해 두었습니다!
         const timetableHTML = `
           <div class="timetable-item"><div class="time">16:00 - 16:50</div><div class="task">가장 취약한 과목 개념 복습 (50분)</div></div>
           <div class="timetable-item"><div class="time">16:50 - 17:00</div><div class="task">수분 섭취 및 스트레칭 (10분)</div></div>
           <div class="timetable-item"><div class="time">17:00 - 17:50</div><div class="task">입력하신 과목 문제 풀이 적용 (50분)</div></div>
           <div class="timetable-item"><div class="time">18:00 - 18:50</div><div class="task">오답 노트 정리 및 약점 보완 (50분)</div></div>
         `;
-        `;
         document.getElementById('timetableContent').innerHTML = timetableHTML;
 
-        // 멘토링 결과 그리기
         const mentoringHTML = `입력하신 성적과 시간을 분석한 맞춤 전략입니다.\n\n1. 집중력이 가장 높은 첫 시간에 취약 과목을 배치했습니다.\n2. 50분 집중, 10분 휴식 패턴을 통해 효율을 극대화하세요.\n3. 좌측의 타이머 기능을 활용하여 시간을 철저하게 관리해보세요. 파이팅! 🔥`;
         document.getElementById('explanationContent').innerText = mentoringHTML;
 
-        // 결과 패널 다시 보여주기
         document.getElementById('timetablePanel').style.display = 'block';
         document.getElementById('explanationPanel').style.display = 'block';
       }, 1500);
     }
 
-    // 페이지 로드 시 타이머 초기화
     updateTimerDisplay();
   </script>
 </body>
