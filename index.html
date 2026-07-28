@@ -73,13 +73,25 @@
 
     /* 왼쪽: 타이머 스타일 */
     .timer-panel { border-top: 5px solid #2ed573; text-align: center; }
+    .timer-mode-badge {
+      display: inline-block; padding: 4px 10px; background-color: #e8fae8; color: #2ed573;
+      border-radius: 12px; font-size: 12px; font-weight: bold; margin-bottom: 12px;
+    }
+    .timer-input-box {
+      display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 12px;
+    }
+    .custom-min-input {
+      width: 70px; padding: 6px; border: 1px solid #b0c4de; border-radius: 6px; text-align: center; font-size: 14px; outline: none;
+    }
     .timer-display {
       font-family: 'Courier New', Courier, monospace; font-size: 48px; font-weight: bold; color: #333;
       background: #f0f4f8; padding: 10px; border-radius: 10px; border: 1px solid #d0e3ff; margin-bottom: 16px; letter-spacing: 2px;
     }
-    .timer-presets { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
+    .timer-presets { display: flex; gap: 6px; justify-content: center; margin-bottom: 12px; flex-wrap: wrap; }
     .preset-btn { background-color: #e6f2ff; color: #1e90ff; border: 1px solid #1e90ff; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold; }
     .preset-btn:hover { background-color: #1e90ff; color: white; }
+    .sw-btn { background-color: #f0f4f8; color: #555; border: 1px solid #ccc; }
+    .sw-btn:hover { background-color: #e0e0e0; color: #333; }
     
     .timer-controls { display: flex; gap: 10px; justify-content: center; }
     .timer-btn { padding: 12px 20px; font-weight: bold; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; transition: 0.2s; flex: 1; color: white; }
@@ -140,12 +152,24 @@
 
       <div class="panel timer-panel">
         <h2 class="panel-title" style="color: #2ed573; border-bottom-color: #a4f0c4;">⏱️ 집중 타이머</h2>
-        <div class="timer-presets">
-          <button class="preset-btn" onclick="setTimerMinutes(25)">25분 몰입</button>
-          <button class="preset-btn" onclick="setTimerMinutes(50)">50분 공부</button>
-          <button class="preset-btn" onclick="setStopwatchMode()">스톱워치 모드</button>
+        
+        <div id="timerModeBadge" class="timer-mode-badge">⏳ 카운트다운 타이머 모드</div>
+
+        <div class="timer-input-box">
+          <input type="number" id="customMinInput" class="custom-min-input" value="25" min="1" max="300">
+          <span style="font-size: 14px; font-weight: bold;">분</span>
+          <button class="preset-btn" onclick="applyCustomTimer()">적용</button>
         </div>
-        <div class="timer-display" id="timerDisplay">00:00:00</div>
+
+        <div class="timer-presets">
+          <button class="preset-btn" onclick="setTimerMinutes(25)">25분</button>
+          <button class="preset-btn" onclick="setTimerMinutes(50)">50분</button>
+          <button class="preset-btn" onclick="setTimerMinutes(10)">10분(휴식)</button>
+          <button class="preset-btn sw-btn" onclick="setStopwatchMode()">스톱워치 모드</button>
+        </div>
+
+        <div class="timer-display" id="timerDisplay">00:25:00</div>
+
         <div class="timer-controls">
           <button class="timer-btn btn-start" onclick="startTimer()">시작</button>
           <button class="timer-btn btn-pause" onclick="pauseTimer()">정지</button>
@@ -184,8 +208,9 @@
 
     // --- 타이머 기능 ---
     let timerInterval = null;
-    let timerSeconds = 0;
-    let isCountdown = false;
+    let timerSeconds = 25 * 60; // 기본값 25분 (1500초)
+    let initialSeconds = 25 * 60;
+    let isCountdown = true;
 
     function updateTimerDisplay() {
       const hrs = String(Math.floor(timerSeconds / 3600)).padStart(2, '0');
@@ -212,10 +237,48 @@
       }, 1000);
     }
 
-    function pauseTimer() { clearInterval(timerInterval); timerInterval = null; }
-    function resetTimer() { pauseTimer(); timerSeconds = 0; isCountdown = false; updateTimerDisplay(); }
-    function setTimerMinutes(mins) { pauseTimer(); isCountdown = true; timerSeconds = mins * 60; updateTimerDisplay(); }
-    function setStopwatchMode() { resetTimer(); }
+    function pauseTimer() { 
+      clearInterval(timerInterval); 
+      timerInterval = null; 
+    }
+
+    function resetTimer() { 
+      pauseTimer(); 
+      timerSeconds = isCountdown ? initialSeconds : 0; 
+      updateTimerDisplay(); 
+    }
+
+    function setTimerMinutes(mins) {
+      pauseTimer();
+      isCountdown = true;
+      initialSeconds = mins * 60;
+      timerSeconds = initialSeconds;
+      document.getElementById('customMinInput').value = mins;
+      document.getElementById('timerModeBadge').innerText = '⏳ 카운트다운 타이머 모드';
+      document.getElementById('timerModeBadge').style.backgroundColor = '#e8fae8';
+      document.getElementById('timerModeBadge').style.color = '#2ed573';
+      updateTimerDisplay();
+    }
+
+    function applyCustomTimer() {
+      const val = parseInt(document.getElementById('customMinInput').value);
+      if (isNaN(val) || val <= 0) {
+        alert('1분 이상의 올바른 시간을 입력해주세요.');
+        return;
+      }
+      setTimerMinutes(val);
+    }
+
+    function setStopwatchMode() {
+      pauseTimer();
+      isCountdown = false;
+      timerSeconds = 0;
+      initialSeconds = 0;
+      document.getElementById('timerModeBadge').innerText = '⏱️ 스톱워치 모드 (경과 시간 측정)';
+      document.getElementById('timerModeBadge').style.backgroundColor = '#f0f4f8';
+      document.getElementById('timerModeBadge').style.color = '#555';
+      updateTimerDisplay();
+    }
 
     // --- 과목 추가 기능 ---
     function addSubjectCard() {
@@ -318,11 +381,14 @@
 
       currentTimetable.forEach(item => {
         if (item.time === currentTimeString && !alarmedTimes.has(item.time)) {
-          alert(`⏰ [일정 알림]\\n지금 해야 할 일: ${item.task}`);
+          alert(`⏰ [일정 알림]\n지금 해야 할 일: ${item.task}`);
           alarmedTimes.add(item.time);
         }
       });
     }, 10000);
+
+    // 초기 화면 실행 시 기본 25분 화면 표시
+    updateTimerDisplay();
   </script>
 </body>
 </html>
