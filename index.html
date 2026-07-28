@@ -77,14 +77,353 @@
       display: inline-block; padding: 4px 10px; background-color: #e8fae8; color: #2ed573;
       border-radius: 12px; font-size: 12px; font-weight: bold; margin-bottom: 12px;
     }
+    
+    /* 스핀박스 스타일 (시, 분, 초 화살표 조절) */
     .timer-input-box {
       display: flex; justify-content: center; align-items: center; gap: 6px; margin-bottom: 12px;
     }
-    .custom-time-input {
-      width: 55px; padding: 6px; border: 1px solid #b0c4de; border-radius: 6px; text-align: center; font-size: 14px; outline: none;
+    .spin-group { display: flex; align-items: center; gap: 2px; }
+    .spinner-input {
+      width: 48px; padding: 6px 2px; border: 1px solid #b0c4de; border-radius: 6px; text-align: center; font-size: 14px; outline: none;
     }
+    /* 브라우저 기본 스핀 화살표 항상 노출 */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      opacity: 1; height: 24px; cursor: pointer;
+    }
+
     .timer-display {
       font-family: 'Courier New', Courier, monospace; font-size: 48px; font-weight: bold; color: #333;
       background: #f0f4f8; padding: 10px; border-radius: 10px; border: 1px solid #d0e3ff; margin-bottom: 16px; letter-spacing: 2px;
     }
-    .timer-presets { display: flex; gap:
+    .timer-presets { display: flex; gap: 6px; justify-content: center; margin-bottom: 12px; flex-wrap: wrap; }
+    .preset-btn { background-color: #e6f2ff; color: #1e90ff; border: 1px solid #1e90ff; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold; }
+    .preset-btn:hover { background-color: #1e90ff; color: white; }
+    .sw-btn { background-color: #f0f4f8; color: #555; border: 1px solid #ccc; }
+    .sw-btn:hover { background-color: #e0e0e0; color: #333; }
+    
+    .timer-controls { display: flex; gap: 10px; justify-content: center; }
+    .timer-btn { padding: 12px 20px; font-weight: bold; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; transition: 0.2s; flex: 1; color: white; }
+    .btn-start { background-color: #2ed573; } .btn-start:hover { background-color: #26af5f; }
+    .btn-pause { background-color: #ffa502; } .btn-pause:hover { background-color: #e09200; }
+    .btn-reset { background-color: #ff4757; } .btn-reset:hover { background-color: #d63031; }
+
+    /* 오른쪽: 결과 패널 스타일 */
+    .result-panel { border-top: 5px solid #4682b4; }
+    .loading { text-align: center; color: #1e90ff; font-weight: bold; display: none; padding: 40px 0; font-size: 16px; }
+    .empty-msg { color: #888; font-size: 14px; text-align: center; padding: 60px 0; }
+    
+    .timetable-item { display: flex; padding: 14px 0; border-bottom: 1px solid #eee; align-items: center; }
+    .timetable-item:last-child { border-bottom: none; }
+    .time { font-weight: bold; color: #1e90ff; width: 100px; font-size: 16px; }
+    .task { flex: 1; font-size: 16px; color: #333; }
+    
+    .explanation-panel { border-top: 5px solid #87ceeb; background-color: #fbfcff; }
+    .explanation-text { line-height: 1.8; font-size: 15px; color: #444; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>나만의 AI 맞춤형 학생 계획표 🗓️</h1>
+  </header>
+
+  <div class="dashboard">
+    <div class="left-column">
+      
+      <div class="panel input-panel">
+        <h2 class="panel-title">📊 현재 상태 입력</h2>
+        
+        <div class="subject-grid" id="subjectGrid">
+          <div class="subject-card">
+            <span class="subject-label">국어</span>
+            <input type="text" class="score-input" placeholder="예: 85점 또는 2등급">
+          </div>
+          <div class="subject-card">
+            <span class="subject-label">수학</span>
+            <input type="text" class="score-input" placeholder="예: 50점 또는 5등급">
+          </div>
+          <div class="subject-card">
+            <span class="subject-label">영어</span>
+            <input type="text" class="score-input" placeholder="예: 70점 또는 3등급">
+          </div>
+        </div>
+
+        <button type="button" class="add-subject-btn" onclick="addSubjectCard()">+ 과목 추가하기</button>
+
+        <h2 class="panel-title" style="margin-top: 10px;">⏰ 공부 가능 시간</h2>
+        <div class="time-wrapper">
+          <input type="text" id="timeInput" placeholder="예: 오늘 오후 4시부터 밤 10시까지">
+        </div>
+
+        <button type="button" class="submit-btn" onclick="generatePlan()">AI 계획 생성하기 🚀</button>
+      </div>
+
+      <div class="panel timer-panel">
+        <h2 class="panel-title" style="color: #2ed573; border-bottom-color: #a4f0c4;">⏱️ 집중 타이머</h2>
+        
+        <div id="timerModeBadge" class="timer-mode-badge">⏳ 카운트다운 타이머 모드</div>
+
+        <div class="timer-input-box">
+          <div class="spin-group">
+            <input type="number" id="customHourInput" class="spinner-input" value="0" min="0" max="99">
+            <span style="font-size: 13px; font-weight: bold;">시</span>
+          </div>
+          <div class="spin-group">
+            <input type="number" id="customMinInput" class="spinner-input" value="25" min="0" max="60">
+            <span style="font-size: 13px; font-weight: bold;">분</span>
+          </div>
+          <div class="spin-group">
+            <input type="number" id="customSecInput" class="spinner-input" value="0" min="0" max="60">
+            <span style="font-size: 13px; font-weight: bold;">초</span>
+          </div>
+          <button class="preset-btn" onclick="applyCustomTimer()">적용</button>
+        </div>
+
+        <div class="timer-presets">
+          <button class="preset-btn" onclick="setTimerMinutes(25)">25분</button>
+          <button class="preset-btn" onclick="setTimerMinutes(50)">50분</button>
+          <button class="preset-btn" onclick="setTimerMinutes(10)">10분(휴식)</button>
+          <button class="preset-btn sw-btn" onclick="setStopwatchMode()">스톱워치 모드</button>
+        </div>
+
+        <div class="timer-display" id="timerDisplay">00:25:00</div>
+
+        <div class="timer-controls">
+          <button class="timer-btn btn-start" onclick="startTimer()">시작</button>
+          <button class="timer-btn btn-pause" onclick="pauseTimer()">정지</button>
+          <button class="timer-btn btn-reset" onclick="resetTimer()">초기화</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="right-column">
+      
+      <div id="loadingMsg" class="panel loading">
+        AI가 성적을 분석하여 최적의 취약점 보완 일정을 짜고 있습니다... 💡
+      </div>
+
+      <div class="panel result-panel" id="timetablePanel">
+        <h2 class="panel-title">⏰ 맞춤형 타임테이블</h2>
+        <div id="timetableContent">
+          <div class="empty-msg">왼쪽에서 성적과 시간을 입력하고 계획을 생성해보세요!</div>
+        </div>
+      </div>
+
+      <div class="panel explanation-panel" id="explanationPanel">
+        <h2 class="panel-title" style="color: #4682b4; border-bottom-color: #b0c4de;">✨ AI 학습 분석 및 멘토링</h2>
+        <div id="explanationContent" class="explanation-text">
+          <div class="empty-msg">AI가 분석한 과목별 공략 팁이 여기에 표시됩니다.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let currentTimetable = [];
+    let alarmedTimes = new Set();
+
+    // --- 타이머 기능 ---
+    let timerInterval = null;
+    let timerSeconds = 25 * 60; // 기본값 25분 (1500초)
+    let initialSeconds = 25 * 60;
+    let isCountdown = true;
+
+    function updateTimerDisplay() {
+      const hrs = String(Math.floor(timerSeconds / 3600)).padStart(2, '0');
+      const mins = String(Math.floor((timerSeconds % 3600) / 60)).padStart(2, '0');
+      const secs = String(timerSeconds % 60).padStart(2, '0');
+      document.getElementById('timerDisplay').innerText = `${hrs}:${mins}:${secs}`;
+    }
+
+    function startTimer() {
+      if (timerInterval) return; 
+      timerInterval = setInterval(() => {
+        if (isCountdown) {
+          if (timerSeconds > 0) {
+            timerSeconds--;
+            updateTimerDisplay();
+          } else {
+            pauseTimer();
+            alert('🔔 [타이머 종료] 설정한 공부 시간이 완료되었습니다! 잠시 휴식을 취하세요.');
+          }
+        } else {
+          timerSeconds++;
+          updateTimerDisplay();
+        }
+      }, 1000);
+    }
+
+    function pauseTimer() { 
+      clearInterval(timerInterval); 
+      timerInterval = null; 
+    }
+
+    function resetTimer() { 
+      pauseTimer(); 
+      timerSeconds = isCountdown ? initialSeconds : 0; 
+      updateTimerDisplay(); 
+    }
+
+    function setTimerMinutes(mins) {
+      pauseTimer();
+      isCountdown = true;
+      initialSeconds = mins * 60;
+      timerSeconds = initialSeconds;
+      
+      document.getElementById('customHourInput').value = Math.floor(mins / 60);
+      document.getElementById('customMinInput').value = mins % 60;
+      document.getElementById('customSecInput').value = 0;
+      
+      document.getElementById('timerModeBadge').innerText = '⏳ 카운트다운 타이머 모드';
+      document.getElementById('timerModeBadge').style.backgroundColor = '#e8fae8';
+      document.getElementById('timerModeBadge').style.color = '#2ed573';
+      updateTimerDisplay();
+    }
+
+    function applyCustomTimer() {
+      const hourVal = parseInt(document.getElementById('customHourInput').value) || 0;
+      const minVal = parseInt(document.getElementById('customMinInput').value) || 0;
+      const secVal = parseInt(document.getElementById('customSecInput').value) || 0;
+      
+      if (hourVal === 0 && minVal === 0 && secVal === 0) {
+        alert('1초 이상의 올바른 시간을 입력해주세요.');
+        return;
+      }
+      
+      pauseTimer();
+      isCountdown = true;
+      initialSeconds = (hourVal * 3600) + (minVal * 60) + secVal;
+      timerSeconds = initialSeconds;
+      
+      document.getElementById('timerModeBadge').innerText = '⏳ 카운트다운 타이머 모드';
+      document.getElementById('timerModeBadge').style.backgroundColor = '#e8fae8';
+      document.getElementById('timerModeBadge').style.color = '#2ed573';
+      updateTimerDisplay();
+    }
+
+    function setStopwatchMode() {
+      pauseTimer();
+      isCountdown = false;
+      timerSeconds = 0;
+      initialSeconds = 0;
+      document.getElementById('timerModeBadge').innerText = '⏱️ 스톱워치 모드 (경과 시간 측정)';
+      document.getElementById('timerModeBadge').style.backgroundColor = '#f0f4f8';
+      document.getElementById('timerModeBadge').style.color = '#555';
+      updateTimerDisplay();
+    }
+
+    // --- 과목 추가 기능 ---
+    function addSubjectCard() {
+      const grid = document.getElementById('subjectGrid');
+      const card = document.createElement('div');
+      card.className = 'subject-card';
+      card.innerHTML = `
+        <input type="text" class="subject-name-input" placeholder="과목명">
+        <input type="text" class="score-input" placeholder="점수/등급">
+        <button type="button" class="remove-btn" onclick="this.parentElement.remove()">✕</button>
+      `;
+      grid.appendChild(card);
+    }
+
+    function collectGradesData() {
+      const cards = document.querySelectorAll('.subject-card');
+      const result = [];
+      cards.forEach(card => {
+        let name = '';
+        const label = card.querySelector('.subject-label');
+        const nameInput = card.querySelector('.subject-name-input');
+        const scoreInput = card.querySelector('.score-input');
+        if (label) name = label.innerText.trim();
+        else if (nameInput) name = nameInput.value.trim();
+        const score = scoreInput ? scoreInput.value.trim() : '';
+        if (name && score) result.push(`${name}: ${score}`);
+      });
+      return result.join(', ');
+    }
+
+    // --- AI 계획 생성 ---
+    async function generatePlan() {
+      const grades = collectGradesData();
+      const time = document.getElementById('timeInput').value.trim();
+      
+      if (!grades) return alert('최소 하나 이상의 과목 점수를 입력해주세요!');
+      if (!time) return alert('공부 가능 시간을 입력해주세요!');
+
+      document.getElementById('timetablePanel').style.display = 'none';
+      document.getElementById('explanationPanel').style.display = 'none';
+      document.getElementById('loadingMsg').style.display = 'block';
+      
+      currentTimetable = [];
+      alarmedTimes.clear();
+
+      try {
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ grades, time })
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok || data.error) {
+          alert('오류: ' + (data.error || '알 수 없는 오류가 발생했습니다.'));
+          return;
+        }
+
+        currentTimetable = data.timetable || [];
+        renderTimetable(currentTimetable);
+        renderExplanation(data.explanation || '');
+
+      } catch (error) {
+        alert('계획을 생성하지 못했습니다. 다시 시도해주세요.');
+        console.error(error);
+      } finally {
+        document.getElementById('loadingMsg').style.display = 'none';
+        document.getElementById('timetablePanel').style.display = 'block';
+        document.getElementById('explanationPanel').style.display = 'block';
+      }
+    }
+
+    function renderTimetable(timetable) {
+      const container = document.getElementById('timetableContent');
+      container.innerHTML = '';
+      if (!timetable || timetable.length === 0) {
+        container.innerHTML = '<div class="empty-msg">생성된 일정이 없습니다.</div>';
+        return;
+      }
+      timetable.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'timetable-item';
+        div.innerHTML = `<div class="time">${item.time}</div><div class="task">${item.task}</div>`;
+        container.appendChild(div);
+      });
+    }
+
+    function renderExplanation(text) {
+      document.getElementById('explanationContent').innerText = text;
+    }
+
+    // --- 알람 기능 ---
+    setInterval(() => {
+      if (currentTimetable.length === 0) return;
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const currentTimeString = `${hours}:${minutes}`;
+
+      currentTimetable.forEach(item => {
+        if (item.time === currentTimeString && !alarmedTimes.has(item.time)) {
+          alert(`⏰ [일정 알림]\n지금 해야 할 일: ${item.task}`);
+          alarmedTimes.add(item.time);
+        }
+      });
+    }, 10000);
+
+    // 초기 화면 실행 시 기본 25분 화면 표시
+    updateTimerDisplay();
+  </script>
+</body>
+</html>
